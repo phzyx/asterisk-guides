@@ -1,0 +1,57 @@
+name: Deploy guides to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let one deployment finish before the next starts, rather than cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+# Both of these silence upstream advocacy banners about the MkDocs 2.0 split
+# (one from Material, one from the same-dir plugin) so a real build warning
+# isn't buried in CI logs.
+env:
+  NO_MKDOCS_2_WARNING: 1
+  DISABLE_MKDOCS_2_WARNING: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
+
+      # --strict turns broken internal links and nav references into build
+      # failures, so a bad cross-reference breaks CI instead of shipping.
+      - name: Build
+        run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

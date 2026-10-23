@@ -1,0 +1,8 @@
+# Material 9.7.5+ caps its own dependency at mkdocs<2, so a MkDocs 2.0 release
+# (pre-released Aug 2026, backward-incompatible, no plugin system) cannot break
+# this build. See the ecosystem note in README.md.
+mkdocs-material>=9.7.5,<10
+
+# Lets docs_dir be the repo root so the guides can stay at ./frames/*.md
+# instead of moving under docs/.
+mkdocs-same-dir~=0.1

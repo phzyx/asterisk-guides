@@ -1,0 +1,78 @@
+site_name: Asterisk Internals Guides
+site_description: Source-level guides to the inner workings of Asterisk
+site_url: https://phzyx.github.io/asterisk-guides/
+repo_url: https://github.com/phzyx/asterisk-guides
+repo_name: phzyx/asterisk-guides
+edit_uri: edit/main/
+
+# The guides are authored in place (./frames/*.md) rather than under a docs/
+# subdirectory. MkDocs normally refuses a docs_dir that contains mkdocs.yml;
+# the same-dir plugin is what permits it.
+docs_dir: .
+plugins:
+  - same-dir
+  - search
+
+exclude_docs: |
+  .github/
+  .venv/
+  site/
+  requirements-docs.txt
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.tracking
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - search.highlight
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+nav:
+  - Home: README.md
+  - Frames:
+      - Overview: frames/README.md
+      - 1. Anatomy: frames/01-anatomy.md
+      - 2. Frame types: frames/02-frame-types.md
+      - 3. Memory and ownership: frames/03-memory-and-ownership.md
+      - 4. Control frames: frames/04-control-frames.md
+      - 5. Channel path: frames/05-channel-path.md
+      - 6. Translation and timing: frames/06-translation-and-timing.md
+      - 7. Interception: frames/07-interception.md
+      - 8. Debugging and recipes: frames/08-debugging-and-recipes.md

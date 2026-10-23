@@ -1,2 +1,7 @@
 *~
 .DS_Store
+
+# mkdocs build output
+/site/
+.venv/
+__pycache__/
