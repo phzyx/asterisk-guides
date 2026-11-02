@@ -829,7 +829,7 @@ does.
 
 ## Next
 
-Chapter 04 (planned; see the [overview](README.md)) covers
+[Chapter 04](04-state-and-flags.md) covers
 `enum ast_channel_state`, the softhangup bits and
 the `AST_FLAG_*` catalog — the flag word this chapter has been telling you to
 mutate under the lock.
