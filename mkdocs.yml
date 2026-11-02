@@ -81,3 +81,4 @@ nav:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md
       - 2. Lifecycle: channels/02-lifecycle.md
+      - 3. References and locking: channels/03-references-and-locking.md

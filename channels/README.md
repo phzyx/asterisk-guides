@@ -79,7 +79,7 @@ Three facts carry most of the weight:
 |---|---|---|
 | [01-anatomy.md](01-anatomy.md) | `struct ast_channel` field group by field group, the accessor layer and its generating macros, snapshot invalidation, `ast_channel_id` | written |
 | [02-lifecycle.md](02-lifecycle.md) | `__ast_channel_alloc` → `finalized` → `ast_hangup` → the ao2 destructor; channel storage registration; soft vs hard hangup; who holds references | written |
-| 03-references-and-locking.md | refs vs locks, `ast_channel_lock`, `CHANNEL_DEADLOCK_AVOIDANCE`, lock ordering against bridge and container locks | planned |
+| [03-references-and-locking.md](03-references-and-locking.md) | refs vs locks, `ast_channel_lock` as a recursive mutex, the string field hazard, lock ordering, `ast_channel_lock_both`, `CHANNEL_DEADLOCK_AVOIDANCE`, `core show locks` | written |
 | 04-state-and-flags.md | `enum ast_channel_state`, the `softhangup` bits, the `AST_FLAG_*` catalog | planned |
 | 05-io-and-waiting.md | the fd vector, `ast_waitfor` family, timing fds, and how this meets the frame read path | planned |
 | 06-masquerade.md | masquerade and `ast_channel_move`: what swaps, what does not, fixup callbacks, local channels | planned |
@@ -102,5 +102,5 @@ Three facts carry most of the weight:
 
 Read [01-anatomy.md](01-anatomy.md) first — the accessor indirection explains the
 shape of every other file in the subsystem. Then [02-lifecycle.md](02-lifecycle.md)
-and, once it exists, references/locking: those two are the ones that prevent
-crashes.
+and [03-references-and-locking.md](03-references-and-locking.md): those two are
+the ones that prevent crashes.
