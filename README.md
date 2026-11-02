@@ -11,7 +11,7 @@ extended independently of the source they describe.
 | Guide | Covers | Target tree |
 |---|---|---|
 | [frames/](frames/README.md) | `struct ast_frame` end to end: anatomy, frame types, memory ownership, control frames, the channel read/write path, translation and timing, framehooks/audiohooks/bridging, debugging recipes | Asterisk 22.2.0 (`a0db68c190`) |
-| [channels/](channels/README.md) | `struct ast_channel` end to end: the opaque struct and its accessor layer, lifecycle, references vs locks, state and flags, I/O and waiting, masquerade, channel drivers, snapshots and debugging | Asterisk `master` (`266378a125`) |
+| [channels/](channels/README.md) | `struct ast_channel` end to end: the opaque struct and its accessor layer, lifecycle, references vs locks, state and flags, I/O and waiting, masquerade, channel drivers, snapshots and debugging | Asterisk `master` (`364f14214c`) |
 
 See the [roadmap](ROADMAP.md) for what's planned next and why in that order.
 
@@ -25,10 +25,15 @@ symbol name. Quoted code blocks are verbatim from the pinned tree.
 Guides may pin *different* trees, and two of them currently do. The frames guide
 was written and verified against the 22.2.0 release; the channels guide was
 written against `master` after the working checkout moved there. `a0db68c190` is
-not an ancestor of `266378a125` — they are divergent branches, with roughly 700
+not an ancestor of `364f14214c` — they are divergent branches, with roughly 700
 lines of difference in `main/channel.c` alone — so a citation from one guide will
 not reliably resolve in the other's tree. Each guide's header states its own
 commit; trust that over the header of any other guide.
+
+`master` is the definitive tree for new work. The frames guide stays pinned to
+22.2.0 rather than being silently relabelled: 61 of its 171 quoted code blocks no
+longer appear verbatim in `master`, so re-pinning it is a re-verification job, not
+an edit to one line. Until that happens, read frames against a 22.2.0 checkout.
 
 ## The site
 

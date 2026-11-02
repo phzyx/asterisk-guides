@@ -1,14 +1,16 @@
 # Channels in Asterisk — A Source-Level Guide
 
-**Target tree:** Asterisk `master`, git `266378a125` (2026-10-26)
+**Target tree:** Asterisk `master`, git `364f14214c` (2026-11-02)
 
-Every `file:line` citation in this guide was verified against that commit. Note
-that this is a *different* tree from the one [the frames guide](../frames/README.md)
-pins (the 22.2.0 release, `a0db68c190`), which is not an ancestor of this commit —
-`master` carries 638 commits that the 22.2.0 branch does not, including about 700
-changed lines in `main/channel.c` alone. Line numbers drift between releases and
-between branches; if you are reading this against a different tree, treat the
-citations as approximate and re-grep for the symbol name.
+Every `file:line` citation in this guide was verified against `266378a125`, two
+commits back; neither intervening commit touches any file this guide cites, so the
+citations hold verbatim at `364f14214c`. Note that this is a *different* tree from
+the one [the frames guide](../frames/README.md) pins (the 22.2.0 release,
+`a0db68c190`), which is not an ancestor of this commit — `master` carries 638
+commits that the 22.2.0 branch does not, including about 700 changed lines in
+`main/channel.c` alone. Line numbers drift between releases and between branches;
+if you are reading this against a different tree, treat the citations as
+approximate and re-grep for the symbol name.
 
 ## Who this is for
 

@@ -3,6 +3,9 @@
 Planned guides, in the order they're worth writing. Line counts are from the
 Asterisk 22.2.0 baseline tree and are there to set expectations about scope.
 
+New work is verified against `master` in `/usr/src/phzyx/asterisk-baseline`, which
+is now the definitive tree.
+
 The ordering is driven by dependency rather than interest: each tier assumes the
 tiers above it. Two debts from the frames guide set the first two entries — it
 cites `main/channel.c` 145 times without ever defining what a channel is, and it
@@ -114,3 +117,27 @@ guide.
 - **CDR and CEL** — `cdr.c` and `cel.c` (6,700)
 - **Memory debugging** — `astmm.c`, `MALLOC_DEBUG`, `REF_DEBUG`; small, and a
   natural companion to the frames debugging chapter
+
+## Maintenance debt
+
+**Re-pin the frames guide to `master`.** It is verified against the 22.2.0 release
+(`a0db68c190`), which is not an ancestor of `master`. Measured against
+`364f14214c`, 110 of its 171 quoted C blocks are still verbatim and 61 are not:
+
+| Chapter | Verbatim | Stale |
+|---|---|---|
+| `01-anatomy.md` | 10 | 6 |
+| `02-frame-types.md` | 3 | 2 |
+| `03-memory-and-ownership.md` | 10 | 8 |
+| `04-control-frames.md` | 11 | 6 |
+| `05-channel-path.md` | 25 | 15 |
+| `06-translation-and-timing.md` | 9 | 7 |
+| `07-interception.md` | 32 | 5 |
+| `08-debugging-and-recipes.md` | 10 | 12 |
+
+Some of chapter 08's misses are illustrative snippets the guide wrote itself
+rather than quotes, so the true stale count is lower than 61. Every `file:line`
+citation would also need re-grepping — `main/channel.c` alone differs by ~700
+lines between the two trees. Worth doing after the channels guide is complete, not
+before; relabelling the header without the re-verification would make the guide
+dishonest rather than current.
