@@ -11,6 +11,7 @@ extended independently of the source they describe.
 | Guide | Covers | Target tree |
 |---|---|---|
 | [frames/](frames/README.md) | `struct ast_frame` end to end: anatomy, frame types, memory ownership, control frames, the channel read/write path, translation and timing, framehooks/audiohooks/bridging, debugging recipes | Asterisk 22.2.0 (`a0db68c190`) |
+| [channels/](channels/README.md) | `struct ast_channel` end to end: the opaque struct and its accessor layer, lifecycle, references vs locks, state and flags, I/O and waiting, masquerade, channel drivers, snapshots and debugging | Asterisk `master` (`266378a125`) |
 
 See the [roadmap](ROADMAP.md) for what's planned next and why in that order.
 
@@ -20,6 +21,14 @@ Every guide pins the exact tree it was written against and cites source as
 `file:line`. Line numbers drift between releases — if you are reading a guide
 against a different checkout, treat citations as approximate and re-grep for the
 symbol name. Quoted code blocks are verbatim from the pinned tree.
+
+Guides may pin *different* trees, and two of them currently do. The frames guide
+was written and verified against the 22.2.0 release; the channels guide was
+written against `master` after the working checkout moved there. `a0db68c190` is
+not an ancestor of `266378a125` — they are divergent branches, with roughly 700
+lines of difference in `main/channel.c` alone — so a citation from one guide will
+not reliably resolve in the other's tree. Each guide's header states its own
+commit; trust that over the header of any other guide.
 
 ## The site
 
