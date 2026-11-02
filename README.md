@@ -12,6 +12,8 @@ extended independently of the source they describe.
 |---|---|---|
 | [frames/](frames/README.md) | `struct ast_frame` end to end: anatomy, frame types, memory ownership, control frames, the channel read/write path, translation and timing, framehooks/audiohooks/bridging, debugging recipes | Asterisk 22.2.0 (`a0db68c190`) |
 
+See the [roadmap](ROADMAP.md) for what's planned next and why in that order.
+
 ## Conventions
 
 Every guide pins the exact tree it was written against and cites source as
