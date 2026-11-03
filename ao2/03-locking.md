@@ -992,6 +992,6 @@ locking has the same pattern with `ast_channel_trylock`.
 
 ## Next
 
-Chapter 04 moves from the object to the container: `struct ao2_container` and the
-vtable behind it, the two backends that implement it, and why a list container
-is a hash container with one bucket.
+[Chapter 04](04-containers.md) moves from the object to the container:
+`struct ao2_container` and the vtable behind it, the two backends that implement
+it, and why a list container is a hash container with one bucket.
