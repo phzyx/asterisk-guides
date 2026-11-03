@@ -514,5 +514,6 @@ unsigned int ao2_options_get(void *obj)
 
 ## Next
 
-Chapter 02 follows a reference from `ao2_bump` to the destructor, and explains
-why the destructor runs with no lock held.
+[Chapter 02](02-refcounting-and-destruction.md) follows a reference from
+`ao2_bump` to the destructor, and explains why the destructor runs with no lock
+held.

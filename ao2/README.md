@@ -86,7 +86,7 @@ Three facts carry most of the weight:
 | File | Covers | Status |
 |---|---|---|
 | [01-objects-and-allocation.md](01-objects-and-allocation.md) | the hidden `__priv_data` header and the four layouts, the magic number and why one check accepts weak proxies, `enum ao2_alloc_opts`, `internal_ao2_alloc` branch by branch, the unreachable `default:`, `ao2_alloc_with_lockobj` | written |
-| `02-refcounting-and-destruction.md` | `__ao2_ref` end to end, the relaxed atomic, the destructor-runs-unlocked rule, the teardown switch and what each lock mode frees, `ao2_bump`/`ao2_cleanup`/`ao2_replace`, `RAII_VAR`, the excessive-refcount tripwire | planned |
+| [02-refcounting-and-destruction.md](02-refcounting-and-destruction.md) | `__ao2_ref` end to end, the relaxed atomic, the destructor-runs-unlocked rule, the teardown switch and what each lock mode frees, `ao2_bump`/`ao2_cleanup`/`ao2_replace`, `RAII_VAR`, the excessive-refcount tripwire | written |
 | `03-locking.md` | the four lock modes as a user sees them, `__adjust_lock` and lock promotion, `ao2_lock` vs `ao2_rdlock` vs `ao2_wrlock` on an object that has the wrong kind of lock, `SCOPED_AO2LOCK`, `lockused`, lock-object borrowing and its ref | planned |
 | `04-containers.md` | `struct ao2_container` and its 8-member vtable (13 under `AO2_DEBUG`), the hash and rbtree backends and which slots each fills, `enum ao2_container_opts`, duplicate handling, the bucket-collapse trap | planned |
 | `05-traversal-and-iterators.md` | `enum search_flags` field by field, the generic traversal engine, who owns the returned reference and the `OBJ_UNLINK` transfer, `OBJ_MULTIPLE` and the result container, `OBJ_NOLOCK` and lock restoration, the iterator | planned |
@@ -110,6 +110,6 @@ Three facts carry most of the weight:
 
 Read [01-objects-and-allocation.md](01-objects-and-allocation.md) first; the
 header-behind-the-pointer layout explains every other file in the subsystem.
-Then `02-refcounting-and-destruction.md`,
+Then [02-refcounting-and-destruction.md](02-refcounting-and-destruction.md),
 which is the one that prevents crashes. Containers can wait until you need
 them.
