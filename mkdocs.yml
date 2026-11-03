@@ -83,6 +83,7 @@ nav:
       - 2. Refcounting and destruction: ao2/02-refcounting-and-destruction.md
       - 3. Locking: ao2/03-locking.md
       - 4. Containers: ao2/04-containers.md
+      - 5. Traversal and iterators: ao2/05-traversal-and-iterators.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md

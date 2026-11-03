@@ -975,8 +975,9 @@ This fires when something outside the container still holds a reference to a
 itself. The only way to acquire a node reference is through
 `traverse_first`/`traverse_next` or the iterator, so in practice this message
 means a traversal or an `ao2_iterator` leaked, and the container's last object
-reference went away before that leaked node reference did. Chapter 05 is about
-who owns those references.
+reference went away before that leaked node reference did.
+[Chapter 05](05-traversal-and-iterators.md) is about who owns those
+references.
 
 Note what the destructor does *not* do: it never takes the container's lock.
 That is chapter 02's destructor-runs-unlocked rule, and `container_destruct`
@@ -1140,8 +1141,8 @@ they point at rather than the proxies themselves; it is chapter 06's subject.
 
 ## Next
 
-Chapter 05 is about getting objects back out: `enum search_flags` field by
-field, the generic traversal engine the two `traverse_*` slots feed, who owns
+[Chapter 05](05-traversal-and-iterators.md) is about getting objects back
+out: `enum search_flags` field by field, the generic traversal engine the two `traverse_*` slots feed, who owns
 the reference `ao2_find` hands back and what `OBJ_UNLINK` transfers,
 `OBJ_MULTIPLE` and the container it returns, `OBJ_NOLOCK` and the lock
 restoration chapter 03 deferred, and `ao2_iterator`.
