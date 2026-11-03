@@ -736,6 +736,6 @@ memory that other threads are also OR-ing into.
 
 ## Next
 
-Chapter 05 (planned; see the [overview](README.md)) covers the fd vector, the
-`ast_waitfor` family and timing fds — the machinery that `AST_FLAG_BLOCKING` and
-the null-frame-plus-`SIGURG` dance in this chapter exist to interrupt.
+[Chapter 05](05-io-and-waiting.md) covers the fd vector, the `ast_waitfor`
+family and timing fds — the machinery that `AST_FLAG_BLOCKING` and the
+null-frame-plus-`SIGURG` dance in this chapter exist to interrupt.
