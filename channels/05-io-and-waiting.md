@@ -1137,7 +1137,7 @@ every frame `ast_read` hands back until the generator data pointer goes NULL.
 
 ## Next
 
-Chapter 06 (planned; see the [overview](README.md)) covers masquerade and
-`ast_channel_move` — including the fd-vector copy at `main/channel.c:7098-7104`
-and the alert-pipe swap in §5.2, both of which exist to make a channel's I/O
-survive having its guts replaced.
+[Chapter 06](06-masquerade.md) covers masquerade and `ast_channel_move` —
+including the fd-vector copy at `main/channel.c:7098-7104` and the alert-pipe
+swap in §5.2, both of which exist to make a channel's I/O survive having its
+guts replaced.

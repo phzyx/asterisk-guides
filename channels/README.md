@@ -82,7 +82,7 @@ Three facts carry most of the weight:
 | [03-references-and-locking.md](03-references-and-locking.md) | refs vs locks, `ast_channel_lock` as a recursive mutex, the string field hazard, lock ordering, `ast_channel_lock_both`, `CHANNEL_DEADLOCK_AVOIDANCE`, `core show locks` | written |
 | [04-state-and-flags.md](04-state-and-flags.md) | `enum ast_channel_state` and `ast_setstate`'s side effects, the `softhangup` bits and `ast_check_hangup`, the `AST_FLAG_*` catalog including `ZOMBIE`, `DEAD` and `SNAPSHOT_STAGE` | written |
 | [05-io-and-waiting.md](05-io-and-waiting.md) | the fd vector and its reserved slots, the alert pipe as a counter, the `ast_waitfor_nandfds` four passes, `fdno` as the handoff to `ast_read`, `AST_FLAG_BLOCKING`/`AST_FLAG_EXCEPTION`, timing fds | written |
-| 06-masquerade.md | masquerade and `ast_channel_move`: what swaps, what does not, fixup callbacks, local channels | planned |
+| [06-masquerade.md](06-masquerade.md) | `ast_channel_move` and `channel_do_masquerade`: why a channel cannot change threads, what the surviving object takes and what it keeps, the container dance, the four fixup mechanisms, `AST_CONTROL_MASQUERADE_NOTIFY`, the callers | written |
 | 07-tech-and-drivers.md | `struct ast_channel_tech`, `ast_request`/`ast_call`/`ast_answer`, what a driver must implement | planned |
 | 08-snapshots-and-debugging.md | snapshots and Stasis coupling, `core show channel`, `REF_DEBUG`, recipes | planned |
 
