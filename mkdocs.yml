@@ -86,3 +86,4 @@ nav:
       - 5. I/O and waiting: channels/05-io-and-waiting.md
       - 6. Masquerade: channels/06-masquerade.md
       - 7. Tech and drivers: channels/07-tech-and-drivers.md
+      - 8. Snapshots and debugging: channels/08-snapshots-and-debugging.md

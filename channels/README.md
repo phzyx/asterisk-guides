@@ -3,8 +3,8 @@
 **Target tree:** Asterisk, the `24` branch
 
 Every `file:line` citation in this guide was verified against the `24` branch of
-`/usr/src/phzyx/asterisk-baseline`: of the 175 code blocks across the overview
-and chapters 01 through 07, all 174 that quote source appear verbatim in that
+`/usr/src/phzyx/asterisk-baseline`: of the 245 code blocks across the overview
+and chapters 01 through 08, all 244 that quote source appear verbatim in that
 tree — the one exception is the `/* WRONG */` anti-pattern in
 [chapter 03](03-references-and-locking.md), which is written to be wrong and is
 not a quotation. Newer releases
@@ -85,7 +85,7 @@ Three facts carry most of the weight:
 | [05-io-and-waiting.md](05-io-and-waiting.md) | the fd vector and its reserved slots, the alert pipe as a counter, the `ast_waitfor_nandfds` four passes, `fdno` as the handoff to `ast_read`, `AST_FLAG_BLOCKING`/`AST_FLAG_EXCEPTION`, timing fds | written |
 | [06-masquerade.md](06-masquerade.md) | `ast_channel_move` and `channel_do_masquerade`: why a channel cannot change threads, what the surviving object takes and what it keeps, the container dance, the four fixup mechanisms, `AST_CONTROL_MASQUERADE_NOTIFY`, the callers | written |
 | [07-tech-and-drivers.md](07-tech-and-drivers.md) | `struct ast_channel_tech` as a 36-member vtable, the `backends` registry, `ast_request`/`ast_call`/`ast_raw_answer`, the single-stream vs multistream fork, what the core does for every absent slot, the per-driver callback matrix, the core's own techs | written |
-| 08-snapshots-and-debugging.md | snapshots and Stasis coupling, `core show channel`, `REF_DEBUG`, recipes | planned |
+| [08-snapshots-and-debugging.md](08-snapshots-and-debugging.md) | the live channel vs the snapshot, the seven segments and their invalidation flags, staging, the dead `memcmp`, channel blobs and the two cache lookups, the AMI/ARI/CDR/CEL consumers and the four `AST_CHAN_TP_INTERNAL` filters, the final snapshot, `core show channel(s)` and the three channel counts, `core set debug channel`, `refdebug` and `refcounter.py` | written |
 
 ## Canonical source files
 

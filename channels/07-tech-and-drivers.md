@@ -1269,8 +1269,11 @@ static const struct ast_channel_tech surrogate_tech = {
 
 It exists so that an external interface can get a `struct ast_channel *` handle
 on something running inside an application, and the `AST_CHAN_TP_INTERNAL`
-property is what keeps it out of AMI, ARI, CDR, CEL and the CLI. It is
-registered at `main/channel.c:8192` and unregistered at `:8125`.
+property is what keeps it out of AMI, ARI, CDR and CEL. It still appears in
+`core show channels` and in both snapshot caches —
+[chapter 08](08-snapshots-and-debugging.md) has the four filters and what each
+one actually suppresses. It is registered at `main/channel.c:8192` and
+unregistered at `:8125`.
 
 `null_tech` is a placeholder used once, at `main/channel.c:927`, for the dummy
 channels that `ast_dummy_channel_alloc` hands out:
@@ -1316,7 +1319,7 @@ tech under a name.
 | Fill in `requester`, `call`, `hangup` and `write` | they are the only four slots all twelve drivers under `channels/` implement; without `requester` no channel can be created at all, and the other three have no core substitute that does anything useful |
 | Allocate `capabilities` before registering | `request_channel` runs `ast_translator_best_choice` against it for every legacy request that contains audio (`main/channel.c:6303`) |
 | Implement `read_stream` and `write_stream` together or neither | `ast_channel_tech_set` asserts it; mixing them is undefined in the read path |
-| Set `AST_CHAN_TP_INTERNAL` on any tech that is not a real call leg | it is the single flag that keeps a channel out of AMI, ARI, CDR, CEL and the CLI |
+| Set `AST_CHAN_TP_INTERNAL` on any tech that is not a real call leg | it is the single flag that keeps a channel out of AMI, ARI, CDR and CEL — though not out of the snapshot caches or `core show channels` |
 | Clear `tech_pvt` in `hangup` | `hangup` is the last driver code to run; the destructor does not call the tech |
 | Implement `fixup` if the pvt caches the owner channel pointer | masquerade moves the pvt to a different channel object |
 | Keep `tech->call`, `tech->setoption`, `tech->queryoption` and `tech->pre_call` short and lock-free | all four are dispatched with the channel lock held |
@@ -1328,6 +1331,7 @@ tech under a name.
 
 ## Next
 
-[Chapter 08](README.md) covers channel snapshots and the Stasis coupling, the
+[Chapter 08](08-snapshots-and-debugging.md) covers channel snapshots and the
+Stasis coupling, the
 `core show channel` family, `REF_DEBUG` and ao2 leak hunting, and the debugging
 recipes for the whole subsystem.
