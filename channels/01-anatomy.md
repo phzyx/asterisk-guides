@@ -1,5 +1,9 @@
 # 01 — Anatomy of `struct ast_channel`
 
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
+
 ## 1.1 Where the struct lives
 
 `struct ast_channel` is opaque to almost the entire tree. `include/asterisk/channel.h:972`

@@ -1,5 +1,9 @@
 # 02 — The frame type catalog
 
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
+
 Every value of `enum ast_frame_type`, `include/asterisk/frame.h:97-138`. Values 1
 through 16 are assigned; the enum is append-only because the numbers go on the
 IAX2 wire (`include/asterisk/frame.h:92-96`).

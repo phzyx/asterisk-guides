@@ -1,10 +1,11 @@
 # Roadmap
 
-Planned guides, in the order they're worth writing. Line counts are from the
-Asterisk 22.2.0 baseline tree and are there to set expectations about scope.
+Planned guides, in the order they're worth writing. Line counts are approximate
+and are there to set expectations about scope.
 
-New work is verified against `master` in `/usr/src/phzyx/asterisk-baseline`, which
-is now the definitive tree.
+All work is verified against the `24` branch in
+`/usr/src/phzyx/asterisk-baseline`, which is the definitive tree. Newer versions
+and other branches may differ.
 
 The ordering is driven by dependency rather than interest: each tier assumes the
 tiers above it. Two debts from the frames guide set the first two entries — it
@@ -120,24 +121,30 @@ guide.
 
 ## Maintenance debt
 
-**Re-pin the frames guide to `master`.** It is verified against the 22.2.0 release
-(`a0db68c190`), which is not an ancestor of `master`. Measured against
-`364f14214c`, 110 of its 171 quoted C blocks are still verbatim and 61 are not:
+**Re-verify the frames guide against `24`.** It was originally written against
+22.2.0. Its header now says `24` along with everything else, but the
+re-verification has not been done: measured against the `24` tree, 127 of its
+171 quoted C blocks are still verbatim and 44 are not. Of those 44, 16 are
+illustrative snippets the guide wrote itself and were never quotes, so the real
+stale count is 28:
 
-| Chapter | Verbatim | Stale |
-|---|---|---|
-| `01-anatomy.md` | 10 | 6 |
-| `02-frame-types.md` | 3 | 2 |
-| `03-memory-and-ownership.md` | 10 | 8 |
-| `04-control-frames.md` | 11 | 6 |
-| `05-channel-path.md` | 25 | 15 |
-| `06-translation-and-timing.md` | 9 | 7 |
-| `07-interception.md` | 32 | 5 |
-| `08-debugging-and-recipes.md` | 10 | 12 |
+| Chapter | Verbatim | Stale quotes | Own examples |
+|---|---|---|---|
+| `01-anatomy.md` | 13 | 3 | 0 |
+| `02-frame-types.md` | 5 | 0 | 0 |
+| `03-memory-and-ownership.md` | 12 | 4 | 2 |
+| `04-control-frames.md` | 15 | 2 | 0 |
+| `05-channel-path.md` | 28 | 12 | 0 |
+| `06-translation-and-timing.md` | 10 | 6 | 0 |
+| `07-interception.md` | 34 | 0 | 3 |
+| `08-debugging-and-recipes.md` | 10 | 1 | 11 |
 
-Some of chapter 08's misses are illustrative snippets the guide wrote itself
-rather than quotes, so the true stale count is lower than 61. Every `file:line`
-citation would also need re-grepping — `main/channel.c` alone differs by ~700
-lines between the two trees. Worth doing after the channels guide is complete, not
-before; relabelling the header without the re-verification would make the guide
-dishonest rather than current.
+The damage is concentrated: chapters 05 and 06 account for 18 of the 28, which
+is unsurprising given that `main/channel.c` and `main/translate.c` are the two
+most actively changed files the guide cites. Chapters 02 and 07 need nothing.
+Every `file:line` citation in the affected chapters needs re-grepping too, not
+just the quoted blocks — the blocks are only the machine-checkable part. The
+guide's overview says so plainly, which is what keeps the relabelling honest
+rather than misleading. Chapter 08's bug list is the other loose end: items 1,
+6, 7 and 8 were re-confirmed present on `24`, the remaining six were not
+re-checked and some may have been fixed upstream.

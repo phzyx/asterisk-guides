@@ -1,5 +1,9 @@
 # 04 — Control frames
 
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
+
 `AST_FRAME_CONTROL` is how Asterisk does in-band signalling between channel
 drivers, the core, bridges and applications. `subclass.integer` holds an
 `enum ast_control_frame_type`; `data.ptr`/`datalen` hold a control-specific

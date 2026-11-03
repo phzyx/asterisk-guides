@@ -1,11 +1,22 @@
 # Frames in Asterisk — A Source-Level Guide
 
-**Target tree:** Asterisk 22.2.0 (`.version` = `22.2.0`, git `a0db68c190`)
+**Target tree:** Asterisk, the `24` branch
 
-Every `file:line` citation in this guide points into an Asterisk 22.2.0 checkout
-(written against `/usr/src/phzyx/asterisk-baseline`). Line numbers
-drift between releases; if you are reading this against a different tree, treat the
-citations as approximate and re-grep for the symbol name.
+Every `file:line` citation in this guide points into the `24` branch of
+`/usr/src/phzyx/asterisk-baseline`. Newer releases and other branches may
+differ; line numbers drift, so if you are reading this against a different tree,
+treat the citations as approximate and re-grep for the symbol name.
+
+One caveat specific to this guide. It was originally written against a 22.2.0
+checkout and has not been re-verified line by line since the baseline moved to
+`24`. The structure, the ownership rules and the named functions all still hold,
+but 28 of its 171 quoted code blocks no longer appear verbatim in the `24`
+tree — mostly in [05-channel-path.md](05-channel-path.md) and
+[06-translation-and-timing.md](06-translation-and-timing.md) — and the line
+numbers around them have drifted with them. Treat every citation in this guide
+as a pointer to a symbol rather than to a line. [The channels
+guide](../channels/README.md) was written against this tree and does not carry
+that caveat: all 141 of its quoted blocks verify verbatim.
 
 ## Who this is for
 

@@ -1,7 +1,11 @@
 # 8. Debugging and recipes
 
-How to watch frames at runtime, the bugs that are actually in the 22.2.0 tree,
-and a set of patterns to copy.
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
+
+How to watch frames at runtime, the bugs that are actually in the tree, and a
+set of patterns to copy.
 
 ---
 
@@ -199,10 +203,15 @@ build.
 
 ---
 
-## 8.3 Known bugs and rough edges in 22.2.0
+## 8.3 Known bugs and rough edges
 
 Collected from the rest of this guide, in rough order of how likely they are to
 matter to you.
+
+This list was compiled when the guide was written and has only been spot-checked
+since the baseline moved to `24` — items 1, 6, 7 and 8 were re-confirmed
+present, the rest were not re-checked. Confirm any of these against your own
+tree before acting on it, and expect some to have been fixed upstream.
 
 ### 1. `ast_frame_enqueue()` is declared but never defined
 

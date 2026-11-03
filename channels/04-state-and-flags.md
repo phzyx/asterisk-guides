@@ -1,6 +1,8 @@
 # 4. State and flags
 
-**Target tree:** Asterisk `master`, git `364f14214c` (2026-11-02)
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
 
 A channel carries three independent words of mutable condition, and they are
 easy to confuse because all three are integers, all three are read through

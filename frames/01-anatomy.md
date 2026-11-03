@@ -1,5 +1,9 @@
 # 01 — Anatomy of `struct ast_frame`
 
+**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
+differ on newer releases and on other branches; re-grep for the symbol name if
+you are reading against a different tree.
+
 Source of truth: `include/asterisk/frame.h`.
 
 ## The struct, annotated
