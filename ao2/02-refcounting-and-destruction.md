@@ -694,6 +694,7 @@ as a pair.
 
 ## Next
 
-Chapter 03 takes the lock the destructor path has just destroyed and works
-backwards: the four lock modes as a caller sees them, what `ao2_lock` does to an
-object that has an rwlock, and the promotion `__adjust_lock` performs.
+[Chapter 03](03-locking.md) takes the lock the destructor path has just
+destroyed and works backwards: the four lock modes as a caller sees them, what
+`ao2_lock` does to an object that has an rwlock, and the promotion
+`__adjust_lock` performs.

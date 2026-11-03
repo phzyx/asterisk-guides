@@ -81,6 +81,7 @@ nav:
       - Overview: ao2/README.md
       - 1. Objects and allocation: ao2/01-objects-and-allocation.md
       - 2. Refcounting and destruction: ao2/02-refcounting-and-destruction.md
+      - 3. Locking: ao2/03-locking.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md
