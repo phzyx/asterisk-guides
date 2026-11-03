@@ -1032,7 +1032,8 @@ have to be replayed rather than copied.
 
 ## Next
 
-[Chapter 07](README.md) covers `struct ast_channel_tech` in full — what a driver
-must implement, and the `ast_request`/`ast_call`/`ast_answer` path that creates
-the channels this chapter has been shuffling. `.fixup` is one entry in a table of
-thirty-odd, and it is not the only one with a non-obvious contract.
+[Chapter 07](07-tech-and-drivers.md) covers `struct ast_channel_tech` in full —
+what a driver must implement, and the `ast_request`/`ast_call`/`ast_raw_answer`
+path that creates the channels this chapter has been shuffling. `.fixup` is one
+entry in a table of thirty-two callbacks, and it is not the only one with a
+non-obvious contract.

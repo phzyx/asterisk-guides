@@ -1,10 +1,10 @@
 # Asterisk Internals Guides
 
 Source-level guides to the inner workings of Asterisk, written for a C developer
-working inside the tree.
-
-These live outside any Asterisk checkout on purpose, so they can be versioned and
-extended independently of the source they describe.
+working inside the tree.  These guides are meant only to provide general knowledge.
+They can and will become obsolote over time.  I will do my best to update them
+occasionally, but please keep in mind these are a side project that I built to
+help my own understanding and in no way constitute anything official.
 
 ## Guides
 
@@ -26,8 +26,9 @@ are deliberately not pinned; `24` is the reference point and the guides stand
 against it.
 
 The two guides are not equally well verified against it, and the difference is
-worth knowing. The channels guide was written against this tree and all 141 of
-its quoted code blocks appear verbatim in it. The frames guide was originally
+worth knowing. The channels guide was written against this tree and all 174 of
+its 175 code blocks appear verbatim in it — the one exception being a
+deliberately-wrong anti-pattern that quotes nothing. The frames guide was originally
 written against 22.2.0 and has not been re-verified line by line since; 28 of
 its 171 quoted blocks no longer match, concentrated in its channel-path and
 translation chapters. Its prose, structure and ownership rules hold — the line

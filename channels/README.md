@@ -3,8 +3,11 @@
 **Target tree:** Asterisk, the `24` branch
 
 Every `file:line` citation in this guide was verified against the `24` branch of
-`/usr/src/phzyx/asterisk-baseline`: all 141 quoted code blocks across the
-overview and chapters 01 through 06 appear verbatim in that tree. Newer releases
+`/usr/src/phzyx/asterisk-baseline`: of the 175 code blocks across the overview
+and chapters 01 through 07, all 174 that quote source appear verbatim in that
+tree — the one exception is the `/* WRONG */` anti-pattern in
+[chapter 03](03-references-and-locking.md), which is written to be wrong and is
+not a quotation. Newer releases
 and other branches may differ — line numbers drift, and `main/channel.c` in
 particular changes by hundreds of lines between branches — so if you are reading
 this against a different tree, treat the citations as approximate and re-grep
@@ -81,7 +84,7 @@ Three facts carry most of the weight:
 | [04-state-and-flags.md](04-state-and-flags.md) | `enum ast_channel_state` and `ast_setstate`'s side effects, the `softhangup` bits and `ast_check_hangup`, the `AST_FLAG_*` catalog including `ZOMBIE`, `DEAD` and `SNAPSHOT_STAGE` | written |
 | [05-io-and-waiting.md](05-io-and-waiting.md) | the fd vector and its reserved slots, the alert pipe as a counter, the `ast_waitfor_nandfds` four passes, `fdno` as the handoff to `ast_read`, `AST_FLAG_BLOCKING`/`AST_FLAG_EXCEPTION`, timing fds | written |
 | [06-masquerade.md](06-masquerade.md) | `ast_channel_move` and `channel_do_masquerade`: why a channel cannot change threads, what the surviving object takes and what it keeps, the container dance, the four fixup mechanisms, `AST_CONTROL_MASQUERADE_NOTIFY`, the callers | written |
-| 07-tech-and-drivers.md | `struct ast_channel_tech`, `ast_request`/`ast_call`/`ast_answer`, what a driver must implement | planned |
+| [07-tech-and-drivers.md](07-tech-and-drivers.md) | `struct ast_channel_tech` as a 36-member vtable, the `backends` registry, `ast_request`/`ast_call`/`ast_raw_answer`, the single-stream vs multistream fork, what the core does for every absent slot, the per-driver callback matrix, the core's own techs | written |
 | 08-snapshots-and-debugging.md | snapshots and Stasis coupling, `core show channel`, `REF_DEBUG`, recipes | planned |
 
 ## Canonical source files
