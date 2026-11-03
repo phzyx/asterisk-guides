@@ -77,6 +77,9 @@ nav:
       - 6. Translation and timing: frames/06-translation-and-timing.md
       - 7. Interception: frames/07-interception.md
       - 8. Debugging and recipes: frames/08-debugging-and-recipes.md
+  - ao2:
+      - Overview: ao2/README.md
+      - 1. Objects and allocation: ao2/01-objects-and-allocation.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md

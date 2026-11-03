@@ -12,6 +12,7 @@ help my own understanding and in no way constitute anything official.
 |---|---|---|
 | [frames/](frames/README.md) | `struct ast_frame` end to end: anatomy, frame types, memory ownership, control frames, the channel read/write path, translation and timing, framehooks/audiohooks/bridging, debugging recipes | Asterisk `24` |
 | [channels/](channels/README.md) | `struct ast_channel` end to end: the opaque struct and its accessor layer, lifecycle, references vs locks, state and flags, I/O and waiting, masquerade, channel drivers, snapshots and Stasis coupling, CLI and `REF_DEBUG` debugging | Asterisk `24` |
+| [ao2/](ao2/README.md) | *in progress* — ao2 objects end to end: the hidden header and four allocation layouts, refcounting and destruction, the four locking modes, containers and their vtable, traversal and iterators, weak proxies, `REF_DEBUG` and `AO2_DEBUG` | Asterisk `24` |
 
 See the [roadmap](ROADMAP.md) for what's planned next and why in that order.
 

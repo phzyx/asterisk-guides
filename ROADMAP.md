@@ -14,7 +14,7 @@ relies on ao2 refcounting (format and topology refs, §3) without a guide to ao2
 
 ## Tier 1 — unblocks everything else
 
-### 1. Channels — *in progress*
+### 1. Channels — *written* ([channels/](channels/README.md))
 
 | | |
 |---|---|
@@ -27,15 +27,22 @@ lifecycle and why holding a reference is not holding a lock, `ast_channel_alloc`
 through `ast_hangup`, the snapshot and Stasis coupling, masquerade, autoservice,
 the `ast_waitfor` family, and the channel storage backends.
 
-### 2. ao2 objects, refcounting and containers
+Shipped as nine files: an overview plus chapters on anatomy and the accessor
+layer, lifecycle, references versus locking, state and flags, I/O and waiting,
+masquerade, the tech vtable and drivers, and snapshots and debugging. All 245
+quoted blocks verify whitespace-exact against the `24` tree, the one exception
+being a deliberate anti-pattern.
+
+### 2. ao2 objects, refcounting and containers — *in progress*
 
 | | |
 |---|---|
 | Core source | `main/astobj2.c` + `astobj2_hash.c` / `astobj2_rbtree.c` / `astobj2_container.c` (5,400), `include/asterisk/astobj2.h` (2,069) |
 | Size | Smaller than channels; a fast write |
 
-Looks like plumbing, is where correctness actually goes wrong. `RAII_VAR` and
-`SCOPED_LOCK` appear at 2,933 sites in the tree and `ao2_lock` at 1,633 — no other
+Looks like plumbing, is where correctness actually goes wrong. Counting call
+sites outside the ao2 implementation itself: `ao2_ref` 2,961, `RAII_VAR` 2,727,
+`ao2_cleanup` 1,467, the five `ao2_*lock` forms 1,640 between them. No other
 subsystem reads cleanly without this. Covers destructors and the "destructor runs
 with no lock held" trap, `ao2_bump`/`cleanup`/`replace`, container types and
 traversal callbacks, `OBJ_NOLOCK` vs `OBJ_MULTIPLE`, weak proxies, `REF_DEBUG`.
