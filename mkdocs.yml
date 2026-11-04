@@ -85,6 +85,7 @@ nav:
       - 4. Containers: ao2/04-containers.md
       - 5. Traversal and iterators: ao2/05-traversal-and-iterators.md
       - 6. Weak proxies and global objects: ao2/06-weak-proxies-and-global-objects.md
+      - 7. Debugging: ao2/07-debugging.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md

@@ -72,8 +72,9 @@ Three facts carry most of the weight:
 2. **A reference is a count, not a handle.** The count is a single `int32_t`
    mutated with `ast_atomic_fetch_add(..., __ATOMIC_RELAXED)`
    (`main/astobj2.c:530`). Nothing records *who* holds a reference unless you
-   compile with `REF_DEBUG` and pass tags, and even then the tag is a string
-   you wrote. This is why leaked channels are hunted by reading a log rather
+   enable `refdebug` in `asterisk.conf` and pass tags, and even then the tag is
+   a string you wrote. No special build is needed; `REF_DEBUG` only sets that
+   option's default (`main/options.c:228-233`). This is why leaked channels are hunted by reading a log rather
    than by asking the object. Chapter 07.
 3. **A list container is a hash container.** `ao2_container_alloc_list` calls
    `__ao2_container_alloc_hash` with one bucket and no hash function
@@ -91,7 +92,7 @@ Three facts carry most of the weight:
 | [04-containers.md](04-containers.md) | `struct ao2_container` and its 8-member vtable (13 under `AO2_DEBUG`), the hash and rbtree backends and which slots each fills, `enum ao2_container_opts`, duplicate handling, the bucket-collapse trap | written |
 | [05-traversal-and-iterators.md](05-traversal-and-iterators.md) | `enum search_flags` field by field, the generic traversal engine, who owns the returned reference and the `OBJ_UNLINK` transfer, `OBJ_MULTIPLE` and the result container, `OBJ_NOLOCK` and lock restoration, the iterator | written |
 | [06-weak-proxies-and-global-objects.md](06-weak-proxies-and-global-objects.md) | `ao2_weakproxy` and the `weakptr` field both objects share, subscription callbacks, the `AO2_GLOBAL_OBJ_STATIC` holder and why a global object is read through a function | written |
-| `07-debugging.md` | `REF_DEBUG` and the `refs` log line formats, `refcounter.py` and `refstats.py`, `AO2_DEBUG` and the five CLI commands, container integrity checks, the compile-time traversal-state budget | planned |
+| [07-debugging.md](07-debugging.md) | `REF_DEBUG` and the `refs` log line formats, `refcounter.py` and `refstats.py`, `AO2_DEBUG` and the five CLI commands, container integrity checks, the compile-time traversal-state budget | written |
 
 ## Canonical source files
 

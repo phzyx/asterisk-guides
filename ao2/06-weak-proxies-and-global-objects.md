@@ -1168,7 +1168,7 @@ practical purposes, documentation of an invariant nobody asserts.
 
 ## Next
 
-Chapter 07 is the last one: `REF_DEBUG` and the two `refs`
+[Chapter 07](07-debugging.md) is the last one: `REF_DEBUG` and the `refs`
 log line formats, `refcounter.py` and `refstats.py`, what `AO2_DEBUG` turns on
 and the CLI commands it adds, the container integrity checks, and the
 compile-time traversal-state budget chapter 05 measured.
