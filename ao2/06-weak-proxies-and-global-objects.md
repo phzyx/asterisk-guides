@@ -1,5 +1,10 @@
 # 06. Weak proxies and global objects
 
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
+
 Two features share this chapter because they solve the same problem from
 opposite ends. A weak proxy lets a container hold a *stand-in* for an object so
 that the container's reference does not keep the object alive. A global object

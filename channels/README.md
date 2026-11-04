@@ -1,17 +1,9 @@
 # Channels in Asterisk — A Source-Level Guide
 
-**Target tree:** Asterisk, the `24` branch
-
-Every `file:line` citation in this guide was verified against the `24` branch of
-`/usr/src/phzyx/asterisk-baseline`: of the 245 code blocks across the overview
-and chapters 01 through 08, all 244 that quote source appear verbatim in that
-tree — the one exception is the `/* WRONG */` anti-pattern in
-[chapter 03](03-references-and-locking.md), which is written to be wrong and is
-not a quotation. Newer releases
-and other branches may differ — line numbers drift, and `main/channel.c` in
-particular changes by hundreds of lines between branches — so if you are reading
-this against a different tree, treat the citations as approximate and re-grep
-for the symbol name.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 ## Who this is for
 

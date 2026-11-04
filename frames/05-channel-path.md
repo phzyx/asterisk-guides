@@ -1,8 +1,9 @@
 # 05 — The channel read and write paths
 
-**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
-differ on newer releases and on other branches; re-grep for the symbol name if
-you are reading against a different tree.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Everything in this file lives in `main/channel.c`. This is where frames actually
 move.

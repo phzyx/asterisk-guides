@@ -1,6 +1,9 @@
 # Snapshots, Stasis and Debugging
 
-**Target tree:** Asterisk, the `24` branch
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Everything that observes a channel from outside the thread that owns it — AMI,
 ARI, CDR, CEL, the CLI's channel list — does not look at the channel. It looks

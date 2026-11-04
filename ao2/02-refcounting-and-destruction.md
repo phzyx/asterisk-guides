@@ -1,6 +1,9 @@
 # 2. Refcounting and Destruction
 
-**Target tree:** Asterisk, the `24` branch
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Chapter 01 showed where an ao2 object lives: a private header behind the pointer
 you hold, and a lock behind that. This chapter follows the one function that

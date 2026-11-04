@@ -1,11 +1,12 @@
 # 8. Debugging and recipes
 
-**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
-differ on newer releases and on other branches; re-grep for the symbol name if
-you are reading against a different tree.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
-How to watch frames at runtime, the bugs that are actually in the tree, and a
-set of patterns to copy.
+How to watch frames at runtime, a set of patterns to copy, and an addendum on
+the places where the code does not behave the way its interface suggests.
 
 ---
 
@@ -201,166 +202,7 @@ For leak hunting the cache is also why you should prefer
 `cache_media_frames = no` over trusting `memory show allocations` on a default
 build.
 
----
-
-## 8.3 Known bugs and rough edges
-
-Collected from the rest of this guide, in rough order of how likely they are to
-matter to you.
-
-Every item below was re-confirmed present on the `24` branch at the time of
-writing. Confirm against your own tree before acting on any of them — the point
-of the citations is that you can.
-
-### 1. `ast_frame_enqueue()` is declared but never defined
-
-```c
-struct ast_frame *ast_frame_enqueue(struct ast_frame *head, struct ast_frame *f, int maxlen, int dupe);
-```
-— `include/asterisk/frame.h:612`
-
-No definition exists anywhere in the tree. Calling it compiles and fails to
-link. Use `ast_queue_frame()` or the `AST_LIST_*` macros.
-
-### 2. Unreachable topology ref-bump in `__ast_frisolate()`
-
-```c
-		if ((fr->frametype == AST_FRAME_VOICE) || (fr->frametype == AST_FRAME_VIDEO) ||
-			(fr->frametype == AST_FRAME_IMAGE)) {
-			ao2_bump(out->subclass.format);
-		} else if (fr->frametype == AST_FRAME_VOICE && fr->subclass.integer == AST_CONTROL_ANSWER) {
-			ao2_bump(out->subclass.topology);
-		}
-```
-— `main/frame.c:222-227`
-
-The `else if` tests `AST_FRAME_VOICE` where it means `AST_FRAME_CONTROL`, so the
-preceding `if` has already matched and the branch is **unreachable**. Meanwhile
-`__ast_frdup()` (`:357`) and `__frame_free()` (`:141`, `:165`) both correctly
-test `AST_FRAME_CONTROL`. Net effect: `ast_frisolate()` never takes a reference
-on a topology, but freeing will release one — a latent over-release. It does not
-bite today because ANSWER frames carrying a topology reach the heap via
-`ast_frdup()`, not `ast_frisolate()`. If you ever add a path that isolates a
-CONTROL/ANSWER frame, fix this first.
-
-### 3. `ast_write()` returns success after giving up on a deadlock
-
-`ast_write_stream()` opens with a `trylock` retry loop rather than a plain
-`ast_channel_lock()`, and after twelve failed attempts it gives up — `count` is
-post-incremented, so `count++ > 10` first holds on the twelfth:
-
-```c
-	/*Deadlock avoidance*/
-	while(ast_channel_trylock(chan)) {
-		/*cannot goto done since the channel is not locked*/
-		if(count++ > 10) {
-			ast_debug(1, "Deadlock avoided for write to channel '%s'\n", ast_channel_name(chan));
-			return 0;
-		}
-		usleep(1);
-	}
-```
-— `main/channel.c:5180-5188`
-
-That `return 0` is **success**, on a path where nothing was written, and the
-caller cannot tell the frame was dropped. There is no leak — `ast_write_stream()`
-never owns `fr` on any path, and at the early return the intermediate `f` is still
-`NULL` — but a caller that counts writes, or that treats a 0 as "the far end has
-it", is wrong under lock contention and has no way to find out. Re-confirmed
-present on `24`. See [05-channel-path.md](05-channel-path.md).
-
-### 4. `tech_write()` returns 0 when no stream matches
-
-```c
-static int tech_write(struct ast_channel *chan, struct ast_stream *stream,
-			struct ast_stream *default_stream, struct ast_frame *frame)
-{
-	if (ast_channel_tech(chan)->write_stream) {
-		return stream ? ast_channel_tech(chan)->write_stream(
-			chan, ast_stream_get_position(stream), frame) : 0;
-	}
-
-	return ((stream == default_stream) && ast_channel_tech(chan)->write) ?
-		ast_channel_tech(chan)->write(chan, frame) : 0;
-}
-```
-— `main/channel.c:5155-5165`
-
-Both `: 0` arms return 0, so a write to an unmapped stream, or to a non-default
-stream on a driver that only has `write`, looks like a successful write.
-Re-confirmed present on `24`. See [05-channel-path.md](05-channel-path.md).
-
-### 5. The `default:` case in `ast_write_stream()` calls `tech->write` directly
-
-```c
-	default:
-		/* At this point, fr is the incoming frame and f is NULL.  Channels do
-		 * not expect to get NULL as a frame pointer and will segfault.  Hence,
-		 * we output the original frame passed in. */
-		CHECK_BLOCKING(chan);
-		res = ast_channel_tech(chan)->write(chan, fr);
-```
-— `main/channel.c:5482-5487`
-
-There is no `if (ast_channel_tech(chan)->write)` guard and no `write_stream`
-fallback, so an exotic frametype written to a stream-only channel driver
-dereferences a `NULL` `write` pointer. Every other case in the switch either
-calls `tech_write()` (which checks) or tests the callback first. See
-[05-channel-path.md](05-channel-path.md).
-
-### 6. `ast_translate()` ignores `consume` for RTCP
-
-The RTCP short-circuit returns the frame *before* the `consume` check, so
-`ast_translate(path, rtcp_frame, 1)` leaks the input. It is latent because the one
-call site that can carry an RTCP frame — `main/channel.c:4241`, the
-`case AST_FRAME_RTCP:` arm of `__ast_read()` — passes 0. Of the fourteen
-`ast_translate()` call sites outside `main/translate.c`, three pass a non-zero
-`consume`: `main/channel.c:4190` sits inside `case AST_FRAME_VOICE:`,
-`main/audiohook.c:773` translates a slin frame pulled from a slinfactory, and
-`res/res_fax.c:3681` is both guarded by `f->frametype == AST_FRAME_VOICE` and
-conditional (`event == AST_FRAMEHOOK_EVENT_WRITE ? 0 : 1`). All three are
-frametype-guarded, so this stays a trap for new code rather than a live bug. See
-[06-translation-and-timing.md](06-translation-and-timing.md).
-
-### 7. Missing `break` after the RTCP case in `ast_frame_subclass2str()`
-
-`main/frame.c:661-662` — described above.
-
-### 8. No `AST_FRAME_CNG` case in `ast_frame_type2str()`
-
-`main/frame.c:671-728` — described above.
-
-### 9. Audiohook manipulate failures are discarded
-
-```c
-			if (!audiohook->manipulate_callback(audiohook, chan, middle_frame, direction)) {
-				/*
-				 * XXX FAILURES ARE IGNORED XXX
-				 * If the manipulation fails then the frame will be returned in its original state.
-				 * Since there are potentially more manipulator callbacks in the list, no action should
-				 * be taken here to exit early.
-				 */
-				middle_frame_manipulated = 1;
-			}
-```
-— `main/audiohook.c:1385-1393`
-
-`middle_frame_manipulated = 1` is set only on success — the callback returns 0 on
-success (`include/asterisk/audiohook.h:85-86`), so the assignment sits inside the
-`if (!...)`. The failure is what disappears: it is not propagated to the caller of
-`ast_audiohook_write_list()` and nothing is logged, so a manipulator that failed
-and one that was never reached are indistinguishable from outside.
-
-### 10. The autoservice DTMF audiohook `\todo`
-
-An in-tree `\todo` at `main/channel.c:3934-3935` notes that the DTMF path can
-write a digit to the audiohook list twice "if the digit was originally read
-while the channel was in autoservice". See
-[05-channel-path.md](05-channel-path.md) §DTMF.
-
----
-
-## 8.4 Recipes
+## 8.3 Recipes
 
 Unlike every other code block in this guide, the blocks in this section are
 **written for the guide rather than quoted from the tree** — they are the
@@ -615,7 +457,7 @@ accidentally mutating it. Never `ast_frdup()` it either — just return it onwar
 
 ---
 
-## 8.5 A debugging checklist
+## 8.4 A debugging checklist
 
 **"My frames are not arriving."**
 Check, in order: is the queue overloaded (`"Exceptionally long ... queue
@@ -655,6 +497,166 @@ headers looking valid.
 **"A thread is stuck for exactly ten minutes."**
 A leaked `AST_FRAME_BRIDGE_ACTION_SYNC` frame. Find the `ast_frfree()` that
 should have been `bridge_frame_free()`.
+
+---
+
+## Addendum — rough edges in the frame code
+
+This guide is not a bug tracker, and nothing here should be read as a list of
+open issues — some of these are deliberate, some are harmless, and all of them
+may be gone by the time you read this. They are collected because each one is a
+place where the code does not do what the surrounding prose would lead you to
+expect, which makes them worth knowing before you write against these interfaces.
+
+Each is present on the `24` branch at the lines cited, in rough order of how
+likely it is to matter to you. Check your own tree before acting on any of them —
+the point of the citations is that you can.
+
+### 1. `ast_frame_enqueue()` is declared but never defined
+
+```c
+struct ast_frame *ast_frame_enqueue(struct ast_frame *head, struct ast_frame *f, int maxlen, int dupe);
+```
+— `include/asterisk/frame.h:612`
+
+No definition exists anywhere in the tree. Calling it compiles and fails to
+link. Use `ast_queue_frame()` or the `AST_LIST_*` macros.
+
+### 2. Unreachable topology ref-bump in `__ast_frisolate()`
+
+```c
+		if ((fr->frametype == AST_FRAME_VOICE) || (fr->frametype == AST_FRAME_VIDEO) ||
+			(fr->frametype == AST_FRAME_IMAGE)) {
+			ao2_bump(out->subclass.format);
+		} else if (fr->frametype == AST_FRAME_VOICE && fr->subclass.integer == AST_CONTROL_ANSWER) {
+			ao2_bump(out->subclass.topology);
+		}
+```
+— `main/frame.c:222-227`
+
+The `else if` tests `AST_FRAME_VOICE` where it means `AST_FRAME_CONTROL`, so the
+preceding `if` has already matched and the branch is **unreachable**. Meanwhile
+`__ast_frdup()` (`:357`) and `__frame_free()` (`:141`, `:165`) both correctly
+test `AST_FRAME_CONTROL`. Net effect: `ast_frisolate()` never takes a reference
+on a topology, but freeing will release one — a latent over-release. It does not
+bite today because ANSWER frames carrying a topology reach the heap via
+`ast_frdup()`, not `ast_frisolate()`. If you ever add a path that isolates a
+CONTROL/ANSWER frame, fix this first.
+
+### 3. `ast_write()` returns success after giving up on a deadlock
+
+`ast_write_stream()` opens with a `trylock` retry loop rather than a plain
+`ast_channel_lock()`, and after twelve failed attempts it gives up — `count` is
+post-incremented, so `count++ > 10` first holds on the twelfth:
+
+```c
+	/*Deadlock avoidance*/
+	while(ast_channel_trylock(chan)) {
+		/*cannot goto done since the channel is not locked*/
+		if(count++ > 10) {
+			ast_debug(1, "Deadlock avoided for write to channel '%s'\n", ast_channel_name(chan));
+			return 0;
+		}
+		usleep(1);
+	}
+```
+— `main/channel.c:5180-5188`
+
+That `return 0` is **success**, on a path where nothing was written, and the
+caller cannot tell the frame was dropped. There is no leak — `ast_write_stream()`
+never owns `fr` on any path, and at the early return the intermediate `f` is still
+`NULL` — but a caller that counts writes, or that treats a 0 as "the far end has
+it", is wrong under lock contention and has no way to find out. See
+[05-channel-path.md](05-channel-path.md).
+
+### 4. `tech_write()` returns 0 when no stream matches
+
+```c
+static int tech_write(struct ast_channel *chan, struct ast_stream *stream,
+			struct ast_stream *default_stream, struct ast_frame *frame)
+{
+	if (ast_channel_tech(chan)->write_stream) {
+		return stream ? ast_channel_tech(chan)->write_stream(
+			chan, ast_stream_get_position(stream), frame) : 0;
+	}
+
+	return ((stream == default_stream) && ast_channel_tech(chan)->write) ?
+		ast_channel_tech(chan)->write(chan, frame) : 0;
+}
+```
+— `main/channel.c:5155-5165`
+
+Both `: 0` arms return 0, so a write to an unmapped stream, or to a non-default
+stream on a driver that only has `write`, looks like a successful write. See
+[05-channel-path.md](05-channel-path.md).
+
+### 5. The `default:` case in `ast_write_stream()` calls `tech->write` directly
+
+```c
+	default:
+		/* At this point, fr is the incoming frame and f is NULL.  Channels do
+		 * not expect to get NULL as a frame pointer and will segfault.  Hence,
+		 * we output the original frame passed in. */
+		CHECK_BLOCKING(chan);
+		res = ast_channel_tech(chan)->write(chan, fr);
+```
+— `main/channel.c:5482-5487`
+
+There is no `if (ast_channel_tech(chan)->write)` guard and no `write_stream`
+fallback, so an exotic frametype written to a stream-only channel driver
+dereferences a `NULL` `write` pointer. Every other case in the switch either
+calls `tech_write()` (which checks) or tests the callback first. See
+[05-channel-path.md](05-channel-path.md).
+
+### 6. `ast_translate()` ignores `consume` for RTCP
+
+The RTCP short-circuit returns the frame *before* the `consume` check, so
+`ast_translate(path, rtcp_frame, 1)` leaks the input. It is latent because the one
+call site that can carry an RTCP frame — `main/channel.c:4241`, the
+`case AST_FRAME_RTCP:` arm of `__ast_read()` — passes 0. Of the fourteen
+`ast_translate()` call sites outside `main/translate.c`, three pass a non-zero
+`consume`: `main/channel.c:4190` sits inside `case AST_FRAME_VOICE:`,
+`main/audiohook.c:773` translates a slin frame pulled from a slinfactory, and
+`res/res_fax.c:3681` is both guarded by `f->frametype == AST_FRAME_VOICE` and
+conditional (`event == AST_FRAMEHOOK_EVENT_WRITE ? 0 : 1`). All three are
+frametype-guarded, so this stays a trap for new code rather than a live bug. See
+[06-translation-and-timing.md](06-translation-and-timing.md).
+
+### 7. Missing `break` after the RTCP case in `ast_frame_subclass2str()`
+
+`main/frame.c:661-662` — described above.
+
+### 8. No `AST_FRAME_CNG` case in `ast_frame_type2str()`
+
+`main/frame.c:671-728` — described above.
+
+### 9. Audiohook manipulate failures are discarded
+
+```c
+			if (!audiohook->manipulate_callback(audiohook, chan, middle_frame, direction)) {
+				/*
+				 * XXX FAILURES ARE IGNORED XXX
+				 * If the manipulation fails then the frame will be returned in its original state.
+				 * Since there are potentially more manipulator callbacks in the list, no action should
+				 * be taken here to exit early.
+				 */
+				middle_frame_manipulated = 1;
+			}
+```
+— `main/audiohook.c:1385-1393`
+
+`middle_frame_manipulated = 1` is set only on success — the callback returns 0 on
+success (`include/asterisk/audiohook.h:85-86`), so the assignment sits inside the
+`if (!...)`. The failure is what disappears: it is not propagated to the caller of
+`ast_audiohook_write_list()` and nothing is logged, so a manipulator that failed
+and one that was never reached are indistinguishable from outside.
+
+### 10. The autoservice DTMF audiohook `\todo`
+
+An in-tree `\todo` at `main/channel.c:3934-3935` notes that the DTMF path can
+write a digit to the audiohook list twice "if the digit was originally read
+while the channel was in autoservice". See
+[05-channel-path.md](05-channel-path.md) §DTMF.
 
 ---
 

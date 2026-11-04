@@ -1,6 +1,9 @@
 # 3. Locking
 
-**Target tree:** Asterisk, the `24` branch
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Chapter 01 put a lock in front of the private header and chapter 02 destroyed
 it. This chapter is about the 253 lines in between: `__ao2_lock`

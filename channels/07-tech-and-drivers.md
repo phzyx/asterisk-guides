@@ -1,8 +1,9 @@
 # 7. Channel technologies and drivers
 
-**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
-differ on newer releases and on other branches; re-grep for the symbol name if
-you are reading against a different tree.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Every channel has a technology. The technology is a `struct ast_channel_tech` —
 a table of 36 members, 32 of them function pointers — and it is the entire

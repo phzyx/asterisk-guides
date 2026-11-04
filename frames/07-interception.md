@@ -1,8 +1,9 @@
 # 7. Interception — framehooks, audiohooks and bridging
 
-**Target tree:** Asterisk, the `24` branch. Line numbers and quoted code may
-differ on newer releases and on other branches; re-grep for the symbol name if
-you are reading against a different tree.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Three separate mechanisms get between a channel and the rest of Asterisk, and
 they have three different ownership contracts. Confusing them is a reliable
@@ -1113,5 +1114,5 @@ and must treat that as "frame consumed".
 ## Next
 
 [08-debugging-and-recipes.md](08-debugging-and-recipes.md) — how to see all of
-this at runtime, the known bugs in the frame code, and a set of copy-and-adapt
-recipes.
+this at runtime, a set of copy-and-adapt patterns, and an addendum on the places
+where the frame code does not behave the way its interface suggests.

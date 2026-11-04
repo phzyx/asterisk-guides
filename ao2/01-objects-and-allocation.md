@@ -1,8 +1,9 @@
 # 1. Objects and Allocation
 
-**Target tree:** Asterisk, the `24` branch. Citations are `file:line` against
-that tree and drift between branches; re-grep the symbol name if you are reading
-against a different checkout.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 An ao2 object is the only thing in Asterisk that you allocate without being able
 to name its type. `ao2_alloc` takes a size and returns a `void *`, and the

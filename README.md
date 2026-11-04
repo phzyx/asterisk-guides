@@ -12,7 +12,7 @@ help my own understanding and in no way constitute anything official.
 |---|---|---|
 | [frames/](frames/README.md) | `struct ast_frame` end to end: anatomy, frame types, memory ownership, control frames, the channel read/write path, translation and timing, framehooks/audiohooks/bridging, debugging recipes | Asterisk `24` |
 | [channels/](channels/README.md) | `struct ast_channel` end to end: the opaque struct and its accessor layer, lifecycle, references vs locks, state and flags, I/O and waiting, masquerade, channel drivers, snapshots and Stasis coupling, CLI and `REF_DEBUG` debugging | Asterisk `24` |
-| [ao2/](ao2/README.md) | *in progress* — ao2 objects end to end: the hidden header and four allocation layouts, refcounting and destruction, the four locking modes, containers and their vtable, traversal and iterators, weak proxies, `REF_DEBUG` and `AO2_DEBUG` | Asterisk `24` |
+| [ao2/](ao2/README.md) | ao2 objects end to end: the hidden header and four allocation layouts, refcounting and destruction, the four locking modes, containers and their vtable, traversal and iterators, weak proxies, `REF_DEBUG` and `AO2_DEBUG` | Asterisk `24` |
 
 See the [roadmap](ROADMAP.md) for what's planned next and why in that order.
 
@@ -26,14 +26,11 @@ treat citations as approximate and re-grep for the symbol name. Specific commits
 are deliberately not pinned; `24` is the reference point and the guides stand
 against it.
 
-The two guides are not equally well verified against it, and the difference is
-worth knowing. The channels guide was written against this tree and all 244 of
-its 245 code blocks appear verbatim in it — the one exception being a
-deliberately-wrong anti-pattern that quotes nothing. The frames guide was originally
-written against 22.2.0 and has not been re-verified line by line since; 28 of
-its 171 quoted blocks no longer match, concentrated in its channel-path and
-translation chapters. Its prose, structure and ownership rules hold — the line
-numbers are the part to distrust. Each guide's header restates its own status.
+Quoted code is quoted, not paraphrased: every fenced block is a whitespace-exact
+excerpt of the file and lines cited beside it. The handful of blocks that are
+*not* quotations — a deliberate anti-pattern, a skeleton with invented names —
+are marked in the source with an `<!-- illustrative -->` comment so that the
+distinction is checkable rather than a matter of trust.
 
 ## The site
 

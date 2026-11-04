@@ -1,6 +1,9 @@
 # 4. Containers
 
-**Target tree:** Asterisk, the `24` branch
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 Chapters 01 through 03 were about one object. This chapter is about the thing
 that holds a lot of them, and the first surprise is that a container *is* one of

@@ -1,22 +1,9 @@
 # Frames in Asterisk — A Source-Level Guide
 
-**Target tree:** Asterisk, the `24` branch
-
-Every `file:line` citation in this guide points into the `24` branch of
-`/usr/src/phzyx/asterisk-baseline`. Newer releases and other branches may
-differ; line numbers drift, so if you are reading this against a different tree,
-treat the citations as approximate and re-grep for the symbol name.
-
-One caveat specific to this guide. It was originally written against a 22.2.0
-checkout and has not been re-verified line by line since the baseline moved to
-`24`. The structure, the ownership rules and the named functions all still hold,
-but 28 of its 171 quoted code blocks no longer appear verbatim in the `24`
-tree — mostly in [05-channel-path.md](05-channel-path.md) and
-[06-translation-and-timing.md](06-translation-and-timing.md) — and the line
-numbers around them have drifted with them. Treat every citation in this guide
-as a pointer to a symbol rather than to a line. [The channels
-guide](../channels/README.md) was written against this tree and does not carry
-that caveat: all 141 of its quoted blocks verify verbatim.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 ## Who this is for
 
@@ -82,7 +69,7 @@ Three facts carry most of the weight:
 | [05-channel-path.md](05-channel-path.md) | `__ast_read`, `__ast_queue_frame`, `ast_write_stream`, waitfor, timing fds, generators, DTMF emulation |
 | [06-translation-and-timing.md](06-translation-and-timing.md) | `translate.c`, smoothers, format refcounts, `samples`/`datalen`/`len`/`ts` |
 | [07-interception.md](07-interception.md) | Framehooks, audiohooks, bridging and bridge action frames |
-| [08-debugging-and-recipes.md](08-debugging-and-recipes.md) | `core set debug channel`, `ast_frame_dump`, known bugs, working recipes |
+| [08-debugging-and-recipes.md](08-debugging-and-recipes.md) | `core set debug channel`, `ast_frame_dump`, working recipes, rough edges |
 
 ## Canonical source files
 

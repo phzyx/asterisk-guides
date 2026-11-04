@@ -1,11 +1,9 @@
 # ao2 Objects, Refcounting and Containers — A Source-Level Guide
 
-**Target tree:** Asterisk, the `24` branch
-
-Every `file:line` citation in this guide was verified against the `24` branch of
-`/usr/src/phzyx/asterisk-baseline`. Newer releases and other branches may
-differ — line numbers drift — so if you are reading this against a different
-tree, treat the citations as approximate and re-grep for the symbol name.
+Every `file:line` citation in this guide was verified against the `24` branch.
+Newer releases and other branches may differ — line numbers drift — so if you
+are reading this against a different tree, treat the citations as approximate
+and re-grep for the symbol name.
 
 ## Who this is for
 
