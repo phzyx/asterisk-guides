@@ -256,8 +256,12 @@ The wrapper that validates and converts in one step:
 ```
 
 `__INTERNAL_OBJ_CHECK` returns NULL and logs rather than crashing, and every
-public entry point runs the pointer through it. The `p ## __LINE__` naming is
-there so the statement expression can be nested without shadowing warnings.
+public entry point runs the pointer through it. The `p ## __LINE__` naming
+(`main/astobj2.c:173`) looks like it is there to keep nested uses distinct, but
+it is not: `##` suppresses macro expansion of its operands, so the local is
+literally called `p__LINE__` in every file on every line. Nesting still works
+only because each statement expression opens a scope and the inner declaration
+shadows the outer one. Chapter 02 finds the same pattern in `ao2_bump`.
 
 ## 1.3 The option words
 

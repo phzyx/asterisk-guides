@@ -1526,8 +1526,8 @@ through a caller's hands.
 
 ## Next
 
-Chapter 06 is about the two ways an object can be reached without a strong
-reference to it: `ao2_weakproxy` and the `weakptr` field that a proxy and its
-object share, the subscription callbacks that fire when the object dies, and
-the `AO2_GLOBAL_OBJ_STATIC` holder — why a global ao2 object is read through a
-function rather than named directly.
+[Chapter 06](06-weak-proxies-and-global-objects.md) is about the two ways an
+object can be reached without a strong reference to it: `ao2_weakproxy` and the
+`weakptr` field that a proxy and its object share, the subscription callbacks
+that fire when the object dies, and the `AO2_GLOBAL_OBJ_STATIC` holder — why a
+global ao2 object is read through a function rather than named directly.
