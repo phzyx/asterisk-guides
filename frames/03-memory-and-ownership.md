@@ -225,7 +225,7 @@ Its three-way behaviour:
 `main/channel.c:5404` is the canonical in-tree use, rebuilding a frame list after
 write-direction audiohooks.
 
-### A real bug at `main/frame.c:225`
+### A real bug at `main/frame.c:222-227`
 
 ```c
 		if ((fr->frametype == AST_FRAME_VOICE) || (fr->frametype == AST_FRAME_VIDEO) ||
@@ -238,7 +238,7 @@ write-direction audiohooks.
 
 The `else if` tests `AST_FRAME_VOICE` where every analogous site tests
 `AST_FRAME_CONTROL`. Compare `__ast_frdup()` at `main/frame.c:357` and
-`__frame_free()` at `main/frame.c:141` and `:165`, which both get it right:
+`__frame_free()` at `main/frame.c:357-359` and `:165`, which both get it right:
 
 ```c
 	} else if (f->frametype == AST_FRAME_CONTROL && f->subclass.integer == AST_CONTROL_ANSWER) {
@@ -338,7 +338,7 @@ The single most useful thing in this guide. Memorize the right-hand column.
 ### The `ast_write` dance, in detail
 
 `ast_write_stream()` tracks two pointers: `fr`, the caller's frame, and `f`, the
-possibly-translated intermediate. At the very end (`main/channel.c:5488-5489`):
+possibly-translated intermediate. At the very end (`main/channel.c:5492-5493`):
 
 ```c
 	if (f && f != fr)
@@ -397,7 +397,7 @@ queue it, you must free it yourself afterwards; the queue took a copy.
 
 ## Dead API: `ast_frame_enqueue()`
 
-`include/asterisk/frame.h:608` declares:
+`include/asterisk/frame.h:612` declares:
 
 ```c
 struct ast_frame *ast_frame_enqueue(struct ast_frame *head, struct ast_frame *f, int maxlen, int dupe);

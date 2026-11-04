@@ -151,7 +151,7 @@ Comfort noise. `include/asterisk/frame.h:119-120`:
 
 So `subclass.integer` is a *level*, not a format, and the payload is optional.
 Produced by RTP when it receives payload type 13 —
-`res/res_rtp_asterisk.c:6166`:
+`res/res_rtp_asterisk.c:6311`:
 
 ```c
 	rtp->f.frametype = AST_FRAME_CNG;
@@ -214,7 +214,7 @@ The header carries an explicit warning about the sync variant
 > queued onto bridge channels, but they absolutely must not ever be written
 > directly into bridges.
 
-enforced by an assertion at `main/bridge_channel.c:643`:
+enforced by an assertion at `main/bridge_channel.c:653`:
 
 ```c
 	ast_assert(frame->frametype != AST_FRAME_BRIDGE_ACTION_SYNC);

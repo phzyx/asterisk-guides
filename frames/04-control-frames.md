@@ -98,7 +98,7 @@ the subclass space for control *frames* and the condition space for
 
 ### `struct ast_control_read_action_payload`
 
-`include/asterisk/frame.h:351-368`:
+`include/asterisk/frame.h:352-369`:
 
 ```c
 enum ast_frame_read_action {
@@ -132,7 +132,7 @@ on the thread that owns the channel, not on whatever thread queued the request.
 
 ### `struct ast_control_t38_parameters`
 
-`include/asterisk/frame.h:397-406`:
+`include/asterisk/frame.h:398-407`:
 
 ```c
 struct ast_control_t38_parameters {
@@ -147,7 +147,7 @@ struct ast_control_t38_parameters {
 };
 ```
 
-With the state enum (`include/asterisk/frame.h:370-377`):
+With the state enum (`include/asterisk/frame.h:371-378`):
 
 ```c
 enum ast_control_t38 {
@@ -184,7 +184,7 @@ states (`main/channel.c:4515-4530`):
 
 ### `struct ast_control_pvt_cause_code`
 
-`include/asterisk/frame.h:413-418`:
+`include/asterisk/frame.h:417-422`:
 
 ```c
 struct ast_control_pvt_cause_code {
@@ -264,7 +264,7 @@ driver if the preprocessing says the update is redundant:
 ## Queuing control frames
 
 Three convenience functions, all building **stack** frames —
-`main/channel.c:1249-1273`:
+`main/channel.c:1288-1312`:
 
 ```c
 /*! \brief Queue a control frame */
@@ -312,7 +312,7 @@ ast_indicate(chan, condition)                        main/channel.c:4296
             └─> indicate_data_internal(...)          main/channel.c:4489
 ```
 
-`ast_indicate()` is a one-liner (`main/channel.c:4296-4299`):
+`ast_indicate()` is a one-liner (`main/channel.c:4298-4301`):
 
 ```c
 int ast_indicate(struct ast_channel *chan, int condition)
@@ -379,7 +379,7 @@ driver can and cannot rely on:
 determines whether the core needs to remember and re-apply it across a
 masquerade or bridge change.
 
-Returns 1 for exactly six conditions (`main/channel.c:4348-4355`):
+Returns 1 for exactly six conditions (`main/channel.c:4351-4358`):
 
 ```c
 	case AST_CONTROL_INCOMPLETE:

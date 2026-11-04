@@ -54,7 +54,7 @@ time:
 	ast_channel_fin_set(tmp, global_fin);
 	ast_channel_fout_set(tmp, global_fout);
 ```
-— `main/channel.c:851-852`
+— `main/channel.c:864-865`
 
 which is what the CLI means by `"Debugging on new channels is enabled"`
 (`main/cli.c:1572`). Naming a single channel sets the flag on that channel only
@@ -66,7 +66,7 @@ One wrinkle in `channel_set_debug()`:
 ```c
 	if (!(ast_channel_fin(chan) & DEBUGCHAN_FLAG) || !(ast_channel_fout(chan) & DEBUGCHAN_FLAG)) {
 ```
-— `main/cli.c:1494`
+— `main/cli.c:1602`
 
 The whole body is guarded on at least one of the two flags being *clear*. So
 once both are set, a subsequent `core set debug channel <name> off` on that same
@@ -85,14 +85,14 @@ you enable it on a production box.
 		ast_frame_dump(ast_channel_name(chan), f, "<<");
 	ast_channel_fin_set(chan, FRAMECOUNT_INC(ast_channel_fin(chan)));
 ```
-— `main/channel.c:4258-4261`, at the bottom of `__ast_read()`
+— `main/channel.c:4260-4263`, at the bottom of `__ast_read()`
 
 ```c
 	/* High bit prints debugging */
 	if (ast_channel_fout(chan) & DEBUGCHAN_FLAG)
 		ast_frame_dump(ast_channel_name(chan), fr, ">>");
 ```
-— `main/channel.c:5247-5249`, in `ast_write_stream()`
+— `main/channel.c:5251-5253`, in `ast_write_stream()`
 
 `<<` is inbound, `>>` is outbound. Note where they sit:
 
@@ -218,7 +218,7 @@ tree before acting on it, and expect some to have been fixed upstream.
 ```c
 struct ast_frame *ast_frame_enqueue(struct ast_frame *head, struct ast_frame *f, int maxlen, int dupe);
 ```
-— `include/asterisk/frame.h:608`
+— `include/asterisk/frame.h:612`
 
 No definition exists anywhere in the tree. Calling it compiles and fails to
 link. Use `ast_queue_frame()` or the `AST_LIST_*` macros.
@@ -265,7 +265,7 @@ successful write. See [05-channel-path.md](05-channel-path.md).
 		CHECK_BLOCKING(chan);
 		res = ast_channel_tech(chan)->write(chan, fr);
 ```
-— `main/channel.c:5478-5483`
+— `main/channel.c:5482-5487`
 
 There is no `if (ast_channel_tech(chan)->write)` guard and no `write_stream`
 fallback, so an exotic frametype written to a stream-only channel driver

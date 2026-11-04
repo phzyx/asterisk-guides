@@ -98,7 +98,7 @@ Note it is a **struct containing a union**, not a bare union: `integer` and
 
 The `integer`/`format` coexistence is why `AST_CONTROL_ANSWER` can carry both a
 control code *and* a topology pointer — see `ast_queue_answer()` at
-`main/channel.c:1265-1273`, which sets both:
+`main/channel.c:1304-1312`, which sets both:
 
 ```c
 int ast_queue_answer(struct ast_channel *chan, const struct ast_stream_topology *topology)
@@ -220,14 +220,14 @@ reallocating or memmoving the payload.
 
 The contract: if you allocate your own buffer, reserve `AST_FRIENDLY_OFFSET` bytes
 at the front, point `data.ptr` past them, and set `offset = AST_FRIENDLY_OFFSET`.
-`res_rtp_asterisk.c` is the canonical example — `res/res_rtp_asterisk.c:390`
+`res_rtp_asterisk.c` is the canonical example — `res/res_rtp_asterisk.c:396`
 declares the buffer with the offset baked in:
 
 ```c
 	unsigned char rawdata[8192 + AST_FRIENDLY_OFFSET];
 ```
 
-and `res/res_rtp_asterisk.c:6157-6159` wires it up:
+and `res/res_rtp_asterisk.c:6302-6304` wires it up:
 
 ```c
 		rtp->f.data.ptr = rtp->rawdata + AST_FRIENDLY_OFFSET;
@@ -364,7 +364,7 @@ Rules:
   means the core did work you cannot see.
 
 `__ast_read()` returns it from many places; the timing-fd path at
-`main/channel.c:3652` is a good illustration of why it is a `return` and not a
+`main/channel.c:3645` is a good illustration of why it is a `return` and not a
 `goto done`:
 
 ```c

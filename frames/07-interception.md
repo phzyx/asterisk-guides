@@ -295,7 +295,7 @@ result back into scalars:
 		datalen = awesome_frame->datalen;
 	}
 ```
-— `main/channel.c:4688-4712`
+— `main/channel.c:4692-4716`
 
 Two consequences. A framehook **can rewrite an indication** — change
 `AST_CONTROL_RINGING` into `AST_CONTROL_PROGRESS`, say — by mutating
@@ -326,7 +326,7 @@ int ast_channel_has_hook_requiring_audio(struct ast_channel *chan)
 		|| !ast_framehook_list_contains_no_active_of_type(ast_channel_framehooks(chan), AST_FRAME_VOICE);
 }
 ```
-— `main/channel.c:2537-2547`
+— `main/channel.c:2517-2527`
 
 `ast_framehook_list_contains_no_active_of_type()` is where `consume_cb` is
 actually consulted:
@@ -470,7 +470,7 @@ struct ast_frame *ast_audiohook_write_list(struct ast_channel *chan, struct ast_
 	}
 }
 ```
-— `main/audiohook.c:1107-1117`
+— `main/audiohook.c:1447-1457`
 
 Recall from [02-frame-types.md](02-frame-types.md) that `AST_FRAME_DTMF` is an
 alias for `AST_FRAME_DTMF_END` — so **DTMF_BEGIN frames never reach an
@@ -482,7 +482,7 @@ audiohook.** Only the END frame does, and only hooks with
 			audiohook->manipulate_callback(audiohook, chan, frame, direction);
 		}
 ```
-— `main/audiohook.c:804-806`
+— `main/audiohook.c:1133-1135`
 
 Note the DTMF path only visits the `manipulate_list` — SPY and WHISPER hooks
 never see DTMF at all. Its return value is also ignored, and the frame is always
@@ -502,7 +502,7 @@ header comment and does exactly what it says:
 	audiohook_list->list_internal_samp_rate =
 		MAX(ast_format_get_sample_rate(frame->subclass.format), audiohook_list->list_internal_samp_rate);
    ```
-   — `main/audiohook.c:832-833`
+   — `main/audiohook.c:1161-1162`
 
    An **interpolated frame short-circuits the whole thing**:
 
@@ -517,7 +517,7 @@ header comment and does exactly what it says:
 		return start_frame;
 	}
    ```
-   — `main/audiohook.c:956-964`
+   — `main/audiohook.c:1285-1293`
 
    This is the consumer side of `generate_interpolated_slin()` from
    [06-translation-and-timing.md](06-translation-and-timing.md): a voice frame
@@ -547,7 +547,7 @@ header comment and does exactly what it says:
 		middle_frame = NULL;
 	}
    ```
-   — `main/audiohook.c:1071-1083`
+   — `main/audiohook.c:1400-1412`
 
 So the ownership contract from the *caller's* point of view is: the returned
 frame is either the frame you passed in, or a new frame that you now own; the
@@ -568,7 +568,7 @@ A manipulator failure is silently swallowed:
 				middle_frame_manipulated = 1;
 			}
 ```
-— `main/audiohook.c:1056-1064`
+— `main/audiohook.c:1385-1393`
 
 Read that carefully: the callback returns **0 on success**, and
 `middle_frame_manipulated` is set inside `if (!...)` — i.e. only on success. The
@@ -669,7 +669,7 @@ static int bridge_channel_queue_action_data(struct ast_bridge_channel *bridge_ch
 	return ast_bridge_channel_queue_frame(bridge_channel, &frame);
 }
 ```
-— `main/bridge_channel.c:899-910`
+— `main/bridge_channel.c:909-920`
 
 A stack frame with a borrowed payload, handed to a queue function that duplicates
 it — the standard pattern from [03-memory-and-ownership.md](03-memory-and-ownership.md).
@@ -768,7 +768,7 @@ static int bridge_channel_queue_action_data_sync(struct ast_bridge_channel *brid
 	return 0;
 }
 ```
-— `main/bridge_channel.c:927-957`
+— `main/bridge_channel.c:937-967`
 
 Everything interesting here is on the stack. `sync_payload` is `ast_alloca`'d
 and the frame borrows it; `ast_bridge_channel_queue_frame()` duplicates both.
@@ -789,7 +789,7 @@ the bridge rather than onto a channel:
 ```c
 	ast_assert(frame->frametype != AST_FRAME_BRIDGE_ACTION_SYNC);
 ```
-— `main/bridge_channel.c:643`, in `bridge_channel_write_frame()`
+— `main/bridge_channel.c:653`, in `bridge_channel_write_frame()`
 
 And a failsafe, because the whole mechanism depends on somebody freeing the
 frame:
@@ -841,7 +841,7 @@ static void bridge_frame_free(struct ast_frame *frame)
 	ast_frfree(frame);
 }
 ```
-— `main/bridge_channel.c:984-1003`
+— `main/bridge_channel.c:994-1013`
 
 **Inside `bridge_channel.c`, never call `ast_frfree()` on a frame that came off a
 bridge queue. Call `bridge_frame_free()`.** Freeing a sync frame with bare
@@ -873,7 +873,7 @@ int ast_bridge_channel_queue_frame(struct ast_bridge_channel *bridge_channel, st
 		return 0;
 	}
 ```
-— `main/bridge_channel.c:1005-1020`
+— `main/bridge_channel.c:1015-1030`
 
 Then the stream mapping check, which silently drops media for unmapped streams
 (`:1022-1037`), then `ast_frdup(fr)` (`:1039`), then — under the bridge channel
@@ -918,7 +918,7 @@ int ast_is_deferrable_frame(const struct ast_frame *frame)
 	return 0;
 }
 ```
-— `main/channel.c:1486-1514`
+— `main/channel.c:1454-1482`
 
 Same no-`default:`-label discipline as `is_visible_indication()` in
 [04-control-frames.md](04-control-frames.md): adding a frame type produces a
@@ -954,7 +954,7 @@ numbering into the bridge's:
 				}
 			}
 ```
-— `main/bridge_channel.c:653-673`
+— `main/bridge_channel.c:663-683`
 
 It **mutates the caller's frame** — `frame->stream_num` is rewritten in place,
 with `unmapped_stream_num` saved so it can be restored. The two maps,
@@ -981,7 +981,7 @@ channel readq has:
 		return;
 	}
 ```
-— `main/bridge_channel.c:2372-2381`
+— `main/bridge_channel.c:2382-2391`
 
 One alert byte per frame, exactly as in `__ast_queue_frame()`. Then the
 selective dequeue:
@@ -1016,7 +1016,7 @@ selective dequeue:
 		return;
 	}
 ```
-— `main/bridge_channel.c:2383-2410`
+— `main/bridge_channel.c:2393-2420`
 
 Structurally the same trick as `should_skip_dtmf()` in `__ast_read()`: walk the
 queue skipping frames that must wait, take the first eligible one, and drain
@@ -1071,7 +1071,7 @@ static void sendtext_safe(struct ast_channel *chan, const struct ast_frame *f)
 	}
 }
 ```
-— `main/bridge_channel.c:2330-2354`
+— `main/bridge_channel.c:2340-2364`
 
 Note that `text[f->datalen - 1]` reads the last byte *within* `datalen` — so a
 payload of exactly `datalen` bytes with no terminator is handled, but it does
@@ -1090,7 +1090,7 @@ terminator if you have one.
 		bridge_frame_free(frame);
 		frame = NULL;
 ```
-— `main/bridge_channel.c:2480-2487`
+— `main/bridge_channel.c:2490-2497`
 
 `bridge_handle_dtmf()` **eats** the frame as soon as the digit could be part of a
 feature sequence, saving only the frametype. That is why the far end does not

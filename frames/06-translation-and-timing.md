@@ -134,7 +134,7 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 
 ### The `consume` argument
 
-The whole ownership story in one parameter (`main/translate.c:676-679`):
+The whole ownership story in one parameter (`main/translate.c:733-736`):
 
 ```c
 	if (consume) {
@@ -154,7 +154,7 @@ most important thing to check when adding a translation call site.
 
 ### The RTCP short-circuit
 
-`main/translate.c:576-585`:
+`main/translate.c:633-642`:
 
 ```c
 	if (f->frametype == AST_FRAME_RTCP) {
@@ -203,7 +203,7 @@ one-off jitter does not permanently skew output timing:
 Outgoing (`:634-661`): each output frame's `delivery` is set from `nextout`, and
 `nextout` advances by the frame's own sample count. A CNG frame **invalidates** the
 prediction, because silence has no reliable duration
-(`main/translate.c:646-648`, repeated at `:670-673`):
+(`main/translate.c:703-705`, repeated at `:670-673`):
 
 ```c
 				/* Invalidate prediction if we're entering a silence period */
@@ -213,7 +213,7 @@ prediction, because silence has no reliable duration
 
 And if the sample count changed, `AST_FRFLAG_HAS_TIMING_INFO` is **cleared**,
 because `ts`/`len`/`seqno` no longer describe the output
-(`main/translate.c:656-659`):
+(`main/translate.c:713-716`):
 
 ```c
 				if (f->samples != current->samples && ast_test_flag(current, AST_FRFLAG_HAS_TIMING_INFO)) {
@@ -230,7 +230,7 @@ When `delivery` is zero the else-branch (`:662-674`) copies the saved
 
 ### The translation loop
 
-`main/translate.c:615-626`:
+`main/translate.c:672-683`:
 
 ```c
 	for (out = f; out && p ; p = p->next) {
@@ -254,7 +254,7 @@ input frame into several outputs.
 
 ### Interpolated frames and generic PLC
 
-`main/translate.c:628-630`:
+`main/translate.c:685-687`:
 
 ```c
 	if (!out) {

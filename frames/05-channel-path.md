@@ -66,7 +66,7 @@ on a dead channel."
 static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, int head, struct ast_frame *after);
 ```
 
-Public wrappers (`main/channel.c:1158-1166`):
+Public wrappers (`main/channel.c:1171-1179`):
 
 ```c
 int ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin)
@@ -343,7 +343,7 @@ has no negotiated stream is **dropped** (`main/channel.c:3746-3756`):
 pointing into a per-instance buffer that will be overwritten on the next read.
 That is the whole reason `ast_frisolate()` exists.
 
-**8. Framehook READ event** — `main/channel.c:3800-3804`, only for the default
+**8. Framehook READ event** — `main/channel.c:3782-3786`, only for the default
 stream:
 
 ```c
@@ -463,7 +463,7 @@ file.
 
 ### The RTCP case
 
-`main/channel.c:4235-4241`:
+`main/channel.c:4237-4243`:
 
 ```c
 		case AST_FRAME_RTCP:
@@ -511,7 +511,7 @@ manufactures the missing halves.
 synthesized DTMF. It is reused, so the core can manufacture a DTMF frame without
 allocating. Both `queue_dtmf_readq()` and the emulation paths write into it.
 
-`queue_dtmf_readq()` (`main/channel.c:3486-3499`):
+`queue_dtmf_readq()` (`main/channel.c:3483-3496`):
 
 ```c
 static inline void queue_dtmf_readq(struct ast_channel *chan, struct ast_frame *f)
@@ -691,7 +691,7 @@ There is a known defect flagged at `main/channel.c:3946-3948`:
 
 Internally there are two: `fr`, the **caller's** frame, which is never freed by
 this function, and `f`, the possibly-translated, possibly-hooked intermediate.
-The invariant is enforced once, at the end (`main/channel.c:5488-5489`):
+The invariant is enforced once, at the end (`main/channel.c:5492-5493`):
 
 ```c
 	if (f && f != fr)
@@ -700,7 +700,7 @@ The invariant is enforced once, at the end (`main/channel.c:5488-5489`):
 
 ### Step 1 — Deadlock avoidance
 
-`main/channel.c:5176-5184`:
+`main/channel.c:5180-5188`:
 
 ```c
 	/*Deadlock avoidance*/
@@ -783,7 +783,7 @@ wrong — but nobody has written that down.
 
 ### Step 5 — Debug dump
 
-`main/channel.c:5247-5249`:
+`main/channel.c:5251-5253`:
 
 ```c
 	/* High bit prints debugging */
@@ -813,7 +813,7 @@ Control frames do **not** go to `tech->write`; they go through
 `indicate_data_internal()`, i.e. the same path as `ast_indicate_data()`. See
 [04-control-frames.md](04-control-frames.md).
 
-The `default:` case is the one with teeth (`main/channel.c:5478-5483`):
+The `default:` case is the one with teeth (`main/channel.c:5482-5487`):
 
 ```c
 	default:
@@ -926,7 +926,7 @@ dropped and reported as success.
 
 ### Step 7 — Epilogue
 
-`main/channel.c:5488-5504`:
+`main/channel.c:5492-5508`:
 
 ```c
 	if (f && f != fr)
@@ -966,7 +966,7 @@ on channels with no alert pipe.
 
 A masquerade swaps two channels' guts, including their alert pipes and readqs. The
 readq swap has to preserve order *and* alert-pipe parity
-(`main/channel.c:7013-7040`):
+(`main/channel.c:7028-7055`):
 
 ```c
 	/* Swap the alertpipes */
