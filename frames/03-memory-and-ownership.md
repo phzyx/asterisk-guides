@@ -10,7 +10,7 @@ misunderstanding which function takes ownership of what.
 
 ## The three ownership bits
 
-`include/asterisk/frame.h:233-237`:
+`include/asterisk/frame.h:232-237`:
 
 ```c
 /*! Need the header be free'd? */
@@ -38,7 +38,7 @@ Four combinations you will actually meet:
 
 `__ast_frdup()` makes **one** allocation covering everything and then marks only
 the header bit. The comment explaining why is worth quoting in full
-(`main/frame.c:364-370`):
+(`main/frame.c:364-371`):
 
 ```c
 	/* Even though this new frame was allocated from the heap, we can't mark it
@@ -93,7 +93,7 @@ list, null its link:
 ```
 
 which is exactly what `channel.c` does in several places, e.g.
-`main/channel.c:3824` and `:4226`.
+`main/channel.c:3806` and `:4228`.
 
 ### `__frame_free()` step by step
 
@@ -141,13 +141,19 @@ void ast_frame_dtor(struct ast_frame *f)
 - Computes one allocation size (`main/frame.c:316-325`):
   ```c
   	len = sizeof(*out) + AST_FRIENDLY_OFFSET + f->datalen;
+  	/* If we have a source, add space for it */
+  	/*
+  	 * XXX Watch out here - if we receive a src which is not terminated
+  	 * properly, we can be easily attacked. Should limit the size we deal with.
+  	 */
   	if (f->src)
   		srclen = strlen(f->src);
   	if (srclen > 0)
   		len += srclen + 1;
-  	```
-  Note the `XXX` warning immediately above about unterminated `src` strings being
-  an attack surface — do not point `src` at non-NUL-terminated memory.
+  ```
+  Note the `XXX` warning sitting in the middle of that calculation about
+  unterminated `src` strings being an attack surface — do not point `src` at
+  non-NUL-terminated memory.
 - Tries the per-thread cache first, accepting any cached header whose
   `mallocd_hdr_len >= len` (`main/frame.c:330`).
 - Bumps the format or topology reference (`main/frame.c:354-359`).
@@ -192,15 +198,16 @@ Its three-way behaviour:
 3. Otherwise it allocates a new header if needed and then, for `src` and `data`
    independently, either **duplicates** them (if the original did not own them) or
    **steals** them (if it did, and we allocated a new header). The steal clears the
-   bit on the original (`main/frame.c:262-268`, `:294-300`):
+   bit on the original — `src` at `main/frame.c:262-268`, `data` at
+   `main/frame.c:294-300`:
    ```c
-   		} else if (out != fr) {
-   			/* Steal the data buffer from the original frame. */
-   			out->data = fr->data;
-   			memset(&fr->data, 0, sizeof(fr->data));
-   			fr->mallocd &= ~AST_MALLOCD_DATA;
-   			out->mallocd |= AST_MALLOCD_DATA;
-   		}
+   	} else if (out != fr) {
+   		/* Steal the data buffer from the original frame. */
+   		out->data = fr->data;
+   		memset(&fr->data, 0, sizeof(fr->data));
+   		fr->mallocd &= ~AST_MALLOCD_DATA;
+   		out->mallocd |= AST_MALLOCD_DATA;
+   	}
    ```
 
 **Two rules follow, and both are easy to get wrong:**
@@ -222,7 +229,7 @@ Its three-way behaviour:
   `data` is zeroed and its ownership bits cleared. It is still safe to
   `ast_frfree()` (that is the point), but its payload is gone.
 
-`main/channel.c:5404` is the canonical in-tree use, rebuilding a frame list after
+`main/channel.c:5408` is the canonical in-tree use, rebuilding a frame list after
 write-direction audiohooks.
 
 ### A real bug at `main/frame.c:222-227`
@@ -271,29 +278,47 @@ differ from production. It is additionally gated at runtime on
 The storage (`main/frame.c:52-77`):
 
 ```c
+#if !defined(NO_FRAME_CACHE)
+static void frame_cache_cleanup(void *data);
+
+/*! \brief A per-thread cache of frame headers */
 AST_THREADSTORAGE_CUSTOM(frame_cache, NULL, frame_cache_cleanup);
 
+/*!
+ * \brief Maximum ast_frame cache size
+ *
+ * In most cases where the frame header cache will be useful, the size
+ * of the cache will stay very small.  However, it is not always the case that
+ * the same thread that allocates the frame will be the one freeing them, so
+ * sometimes a thread will never have any frames in its cache, or the cache
+ * will never be pulled from.  For the latter case, we limit the maximum size.
+ */
 #define FRAME_CACHE_MAX_SIZE	10
+
+/*! \brief This is just so ast_frames, a list head struct for holding a list of
+ *  ast_frame structures, is defined. */
+AST_LIST_HEAD_NOLOCK(ast_frames, ast_frame);
 
 struct ast_frame_cache {
 	struct ast_frames list;
 	size_t size;
 };
+#endif
 ```
 
-The size cap has a specific rationale (`main/frame.c:58-66`):
-
-> In most cases where the frame header cache will be useful, the size of the cache
-> will stay very small. However, it is not always the case that the same thread
-> that allocates the frame will be the one freeing them, so sometimes a thread
-> will never have any frames in its cache, or the cache will never be pulled
-> from. For the latter case, we limit the maximum size.
+The `FRAME_CACHE_MAX_SIZE` cap has a specific rationale, spelled out in the
+comment at `main/frame.c:58-66`: in the common case a thread both allocates and
+frees its own frames, so its cache stays tiny. But nothing guarantees that. A
+producer thread that never frees would grow its cache without bound, and a
+consumer thread that never allocates would never pull from its own — so the cap
+bounds the first case and accepts the waste in the second.
 
 `ast_frame_header_new()` (`main/frame.c:81-107`) pops the head of the cache,
 `memset`s it, and **restores `mallocd_hdr_len`** so the recycled block's true size
-is not lost:
+is not lost (`main/frame.c:88-97`):
 
 ```c
+	if ((frames = ast_threadstorage_get(&frame_cache, sizeof(*frames)))) {
 		if ((f = AST_LIST_REMOVE_HEAD(&frames->list, frame_list))) {
 			size_t mallocd_len = f->mallocd_hdr_len;
 
@@ -302,6 +327,7 @@ is not lost:
 			frames->size--;
 			return f;
 		}
+	}
 ```
 
 `__ast_frdup()` is choosier: it walks the cache looking for a block big enough for
@@ -347,22 +373,29 @@ possibly-translated intermediate. At the very end (`main/channel.c:5492-5493`):
 
 It frees **only what it created**. The caller's `fr` is never touched. And the
 `default:` case deliberately writes the *original* `fr`
-(`main/channel.c:5478-5485`) with this comment:
+(`main/channel.c:5482-5489`) with this comment:
 
 > Channels do not expect to get NULL as a frame pointer and will segfault
 
 ### The `ast_queue_frame` convention
 
 `__ast_queue_frame()` duplicates every frame it is given
-(`main/channel.c:1077-1087`):
+(`main/channel.c:1088-1100`):
 
 ```c
+	/* Build copies of all the new frames and count them */
+	AST_LIST_HEAD_INIT_NOLOCK(&frames);
 	for (cur = fin; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
-		...
-		f = ast_frdup(cur);
-		...
+		if (!(f = ast_frdup(cur))) {
+			if (AST_LIST_FIRST(&frames)) {
+				ast_frfree(AST_LIST_FIRST(&frames));
+			}
+			ast_channel_unlock(chan);
+			return -1;
+		}
+
 		AST_LIST_INSERT_TAIL(&frames, f, frame_list);
-	}
+		new_frames++;
 ```
 
 Which is why so much of the core queues frames that live on the stack —

@@ -54,7 +54,7 @@ The discriminator. Every other field's meaning depends on it. Values are
 [02-frame-types.md](02-frame-types.md).
 
 **These values are wire-visible.** The enum carries this warning at
-`include/asterisk/frame.h:92-96`:
+`include/asterisk/frame.h:93-95`:
 
 > NOTE: It is important that the values of each frame type are never changed,
 > because it will break backwards compatibility with older versions. This is
@@ -92,8 +92,8 @@ Note it is a **struct containing a union**, not a bare union: `integer` and
 | `AST_FRAME_CONTROL` | `subclass.integer` = an `AST_CONTROL_*`; **plus** `subclass.topology` when `integer == AST_CONTROL_ANSWER` or a topology control |
 | `AST_FRAME_DTMF_BEGIN` / `_END` | `subclass.integer` = the ASCII digit character |
 | `AST_FRAME_TEXT` | `subclass.integer` — `0` for plain, or a format-ish marker |
-| `AST_FRAME_MODEM` | `subclass.integer` = `AST_MODEM_T38` (1) or `AST_MODEM_V150` (2), `frame.h:239-243` |
-| `AST_FRAME_HTML` | `subclass.integer` = `AST_HTML_*`, `frame.h:247-263` |
+| `AST_FRAME_MODEM` | `subclass.integer` = `AST_MODEM_T38` (1) or `AST_MODEM_V150` (2), `include/asterisk/frame.h:239-243` |
+| `AST_FRAME_HTML` | `subclass.integer` = `AST_HTML_*`, `include/asterisk/frame.h:247-263` |
 | `AST_FRAME_NULL`, `AST_FRAME_CNG`, `AST_FRAME_RTCP` | unused |
 
 The `integer`/`format` coexistence is why `AST_CONTROL_ANSWER` can carry both a
@@ -116,7 +116,7 @@ int ast_queue_answer(struct ast_channel *chan, const struct ast_stream_topology 
 frame** once the frame is heap-allocated. `__ast_frdup()` bumps it
 (`main/frame.c:354-359`) and `__frame_free()` releases it — twice over, once on
 the cache path (`main/frame.c:137-143`) and once on the real-free path
-(`main/frame.c:160-167`):
+(`main/frame.c:160-172`):
 
 ```c
 	if (fr->mallocd & AST_MALLOCD_HDR) {
@@ -142,14 +142,14 @@ frame can carry either a pointer or a small inline integer:
 - `data.ptr` — the normal case; points at the payload.
 - `data.uint32` — used when the payload *is* a number and `datalen` is 0. For
   example `AST_FRAME_HTML` link/URL subclasses, and the `__ast_frisolate()`
-  shortcut at `main/frame.c:273-279`:
+  shortcut at `main/frame.c:273-277`:
 
 ```c
-	if (!fr->datalen && fr->frametype != AST_FRAME_TEXT) {
-		out->data.uint32 = fr->data.uint32;
-		...
-		return out;
-	}
+		if (!fr->datalen && fr->frametype != AST_FRAME_TEXT) {
+			/* Actually it's just an int so we can simply copy it. */
+			out->data.uint32 = fr->data.uint32;
+			return out;
+		}
 ```
 
 - `pad[8]` exists purely to force the union to 8 bytes on 32-bit builds so the
@@ -169,7 +169,7 @@ drifts. See [06-translation-and-timing.md](06-translation-and-timing.md).
 
 ### `mallocd` and `mallocd_hdr_len`
 
-The ownership bitfield. `include/asterisk/frame.h:233-237`:
+The ownership bitfield. `include/asterisk/frame.h:232-237`:
 
 ```c
 /*! Need the header be free'd? */
@@ -182,12 +182,11 @@ The ownership bitfield. `include/asterisk/frame.h:233-237`:
 
 `mallocd == 0` means the frame is entirely borrowed — typically a stack frame or a
 driver-owned static. `ast_frfree()` on such a frame is a no-op by design
-(`main/frame.c:124-126`):
+(`main/frame.c:124-125`):
 
 ```c
-	if (!fr->mallocd) {
+	if (!fr->mallocd)
 		return;
-	}
 ```
 
 `mallocd_hdr_len` records how many bytes were actually allocated for the header
@@ -252,7 +251,7 @@ a pointer that is not the start of the allocation. Use the macro
 (`include/asterisk/frame.h:208-213`) instead of doing it by hand:
 
 ```c
-#define AST_FRAME_SET_BUFFER(fr, _base, _ofs, _datalen)	\
+#define	AST_FRAME_SET_BUFFER(fr, _base, _ofs, _datalen)	\
 	{					\
 	(fr)->data.ptr = (char *)_base + (_ofs);	\
 	(fr)->offset = (_ofs);			\
@@ -266,7 +265,7 @@ A short string naming the producer, used only for debugging and logging ("RTP",
 "DAHDI", "ast_prod"). Owned by the frame only when `AST_MALLOCD_SRC` is set,
 which in practice only happens after `__ast_frisolate()` or `__ast_frdup()` copy
 it. Drivers set it to a string literal and leave the bit clear —
-`res/res_rtp_asterisk.c:5906`:
+`res/res_rtp_asterisk.c:6051`:
 
 ```c
 	rtp->f.src = "RTP";
@@ -315,7 +314,7 @@ enum {
 - `AST_FRFLAG_REQUEUED` — set by the core when it pushes an already-processed
   frame back onto the readq so the second pass through `__ast_read()` does not
   re-translate or re-hook it. Set in the multi-frame translator output path at
-  `main/channel.c:4213-4218`.
+  `main/channel.c:4217-4220`.
 
 ### `ts`, `len`, `seqno`
 
@@ -335,7 +334,7 @@ Added for multistream (SFU / multi-video) support. Identifies which
 it to a stream and the caller asked for default-stream-only behaviour.
 
 The two-wrapper split in `ast_read` vs `ast_read_stream`
-(`main/channel.c:4276-4294`) is exactly about this field.
+(`main/channel.c:4278-4286`) is exactly about this field.
 
 ## `ast_null_frame`
 

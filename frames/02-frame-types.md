@@ -6,7 +6,7 @@ you are reading against a different tree.
 
 Every value of `enum ast_frame_type`, `include/asterisk/frame.h:97-138`. Values 1
 through 16 are assigned; the enum is append-only because the numbers go on the
-IAX2 wire (`include/asterisk/frame.h:92-96`).
+IAX2 wire (`include/asterisk/frame.h:93-95`).
 
 ## Quick reference
 
@@ -48,10 +48,10 @@ frame owns a reference once heap-allocated.
   different one, or with a *list*.
 
 `__ast_read()`'s voice handling is the largest single block in `channel.c`
-(`main/channel.c:4073-4234`). See [05-channel-path.md](05-channel-path.md).
+(`main/channel.c:4075-4236`). See [05-channel-path.md](05-channel-path.md).
 
 Voice frames are the only type the core will drop under queue pressure, alongside
-video and null — `main/channel.c:1107-1120`.
+video and null — `main/channel.c:1114-1139`.
 
 ## `AST_FRAME_VIDEO` (3)
 
@@ -79,13 +79,13 @@ Two special properties:
 2. **The core consumes many of them silently.** `__ast_read()`'s control case
    handles `AST_CONTROL_ANSWER`, `AST_CONTROL_READ_ACTION`, the topology controls
    and the FLASH/WINK events itself and returns a null frame instead
-   (`main/channel.c:3835-3902`). Do not assume a queued control frame will reach
+   (`main/channel.c:3818-3884`). Do not assume a queued control frame will reach
    your read loop.
 
 ## `AST_FRAME_NULL` (5)
 
 "Nothing happened that you can see." Always `&ast_null_frame` in practice.
-`ast_write()` silently ignores it (`main/channel.c:5463-5464`). The queue-pressure
+`ast_write()` silently ignores it (`main/channel.c:5467-5471`). The queue-pressure
 flush treats it as droppable. See the `ast_null_frame` section of
 [01-anatomy.md](01-anatomy.md).
 
@@ -93,7 +93,7 @@ flush treats it as droppable. See the `ast_null_frame` section of
 
 Private to `chan_iax2`. Carries IAX2 protocol subcommands between the channel
 driver and its peer. The core must never generate or interpret one.
-`ast_write()` silently ignores it too (`main/channel.c:5465-5466`), grouped with
+`ast_write()` silently ignores it too (`main/channel.c:5467-5471`), grouped with
 `AST_FRAME_NULL`:
 
 ```c
@@ -117,7 +117,7 @@ So: **never `strlen()` a text frame's payload.** Use `datalen`. This is a real
 source of out-of-bounds reads.
 
 `ast_write_stream()` routes text two ways depending on format
-(`main/channel.c:5281-5291`): T.140 real-time text goes to `tech->write_text`,
+(`main/channel.c:5285-5295`): T.140 real-time text goes to `tech->write_text`,
 everything else to `tech->send_text`.
 
 `__ast_frisolate()` carves out an explicit exception for text frames with
@@ -140,7 +140,7 @@ Legacy web-integration frames, subclasses at `include/asterisk/frame.h:247-263`:
 Interesting mainly as the clearest user of `data.uint32`: the link-status
 subclasses carry a number, not a buffer, so `datalen` is 0 and `data.uint32`
 holds the value. This is what the `__ast_frisolate()` shortcut at
-`main/frame.c:273-279` exists for.
+`main/frame.c:273-277` exists for.
 
 ## `AST_FRAME_CNG` (10)
 
@@ -191,16 +191,16 @@ constants:
 
 | Constant | Value | Location |
 |---|---|---|
-| `AST_DEFAULT_EMULATE_DTMF_DURATION` | 100 | `main/channel.c:102` |
-| `DEFAULT_EMULATE_MF_DURATION` | 55 | `main/channel.c:106` |
-| `AST_MIN_DTMF_GAP` | 45 | `main/channel.c:112` |
-| `option_dtmfminduration` | `AST_MIN_DTMF_DURATION` | `main/options.c:83` |
+| `AST_DEFAULT_EMULATE_DTMF_DURATION` | 100 | `main/channel.c:106` |
+| `DEFAULT_EMULATE_MF_DURATION` | 55 | `main/channel.c:110` |
+| `AST_MIN_DTMF_GAP` | 45 | `main/channel.c:116` |
+| `option_dtmfminduration` | `AST_MIN_DTMF_DURATION` | `main/options.c:84` |
 
 Full state machine in [05-channel-path.md](05-channel-path.md).
 
 In the write direction, DTMF frames do not go to `tech->write`; they go to
 `ast_senddigit_begin()` / `ast_senddigit_end()` with the channel unlocked
-(`main/channel.c:5255-5280`).
+(`main/channel.c:5259-5284`).
 
 ## `AST_FRAME_BRIDGE_ACTION` (13) and `AST_FRAME_BRIDGE_ACTION_SYNC` (14)
 
@@ -223,7 +223,7 @@ enforced by an assertion at `main/bridge_channel.c:653`:
 A sync action's payload is a `struct sync_payload` whose freeing *signals the
 waiting thread* — so freeing it with plain `ast_frfree()` would hang the sender.
 That is why bridging has its own `bridge_frame_free()`
-(`main/bridge_channel.c:984-1003`). Details in
+(`main/bridge_channel.c:994-1013`). Details in
 [07-interception.md](07-interception.md).
 
 ## `AST_FRAME_RTCP` (15)
@@ -233,23 +233,30 @@ anything doing congestion control) can see it. `subclass.integer` is the RTCP
 payload type; `data.ptr` is a `struct ast_rtp_rtcp_report` or
 `struct ast_rtp_rtcp_feedback`.
 
-Constructed in `res/res_rtp_asterisk.c:7041` and `:7109`, with the payload built
+Constructed in `res/res_rtp_asterisk.c:7244` and `:7314`, with the payload built
 into the per-instance `rtcp->frame_buf` and `mallocd = 0`
-(`res/res_rtp_asterisk.c:7043-7060`).
+(`res/res_rtp_asterisk.c:7244-7260`).
 
 Three oddities worth knowing:
 
 1. **`ast_translate()` short-circuits RTCP.** It calls each translator's
    `feedback()` callback and then returns `&ast_null_frame`
-   (`main/translate.c:566-600`) — an RTCP frame is never translated into
+   (`main/translate.c:633-642`) — an RTCP frame is never translated into
    anything.
 2. **`__ast_read()` feeds read-direction RTCP to the *write* translator**
-   (`main/channel.c:4235-4241`):
+   (`main/channel.c:4237-4243`):
    ```c
-   		ast_translate(ast_channel_writetrans(chan), f, 0);
+   		case AST_FRAME_RTCP:
+   			/* Incoming RTCP feedback needs to get to the translator for
+   			 * outgoing media, which means we treat it as an ast_write */
+   			if (ast_channel_writetrans(chan)) {
+   				ast_translate(ast_channel_writetrans(chan), f, 0);
+   			}
+   			break;
    ```
-   Which is correct: RTCP arriving on the read side is a receiver report *about
-   what we sent*, so it is feedback for the encoder.
+   The in-tree comment states the intent, and it is correct: RTCP arriving on the
+   read side is a receiver report *about what we sent*, so it is feedback for the
+   encoder, not for the decoder.
 3. **`ast_frame_subclass2str()` is buggy for RTCP** — the case at
    `main/frame.c:661-662` is missing a `break` and falls through to `default`.
 
@@ -268,13 +275,13 @@ Worth internalizing, because it explains a lot of "my frame never arrived":
 
 | Situation | Types affected | Location |
 |---|---|---|
-| Readq over 128 total / 96 voice | VOICE, VIDEO, NULL (up to 64 dropped) | `main/channel.c:1101-1120` |
-| `ast_write()` ignores | NULL, IAX | `main/channel.c:5463-5467` |
-| `__ast_read()` consumes internally | many CONTROL subclasses | `main/channel.c:3835-3902` |
-| Generator active on write | everything except DTMF_END and CONTROL/UNHOLD | `main/channel.c:5222-5246` |
-| `ast_translate()` swallows | RTCP (returns null frame) | `main/translate.c:566-600` |
+| Readq over 128 total / 96 voice | VOICE, VIDEO, NULL (up to 64 dropped) | `main/channel.c:1114-1139` |
+| `ast_write()` ignores | NULL, IAX | `main/channel.c:5467-5471` |
+| `__ast_read()` consumes internally | many CONTROL subclasses | `main/channel.c:3818-3884` |
+| Generator active on write | everything except DTMF_END and CONTROL/UNHOLD | `main/channel.c:5226-5250` |
+| `ast_translate()` swallows | RTCP (returns null frame) | `main/translate.c:633-642` |
 | `ast_frame_dump()` prints nothing | VOICE, VIDEO, RTCP | `main/frame.c:731-785` |
-| `__ast_read()` drops unmappable | any frame with an unresolvable `stream_num` | `main/channel.c:3720-3758` |
+| `__ast_read()` drops unmappable | any frame with an unresolvable `stream_num` | `main/channel.c:3719-3740` |
 
 ---
 

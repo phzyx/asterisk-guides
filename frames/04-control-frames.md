@@ -126,7 +126,7 @@ A flexible-array struct, so `datalen` must be
 
 This is the mechanism for "run this on the channel's own thread" — the three
 actions are dispatched inside `__ast_read()`'s control case
-(`main/channel.c:3835-3902`) and the frame is then **swallowed**, with
+(`main/channel.c:3835-3863`) and the frame is then **swallowed**, with
 `&ast_null_frame` returned in its place. That is the point: the work has to happen
 on the thread that owns the channel, not on whatever thread queued the request.
 
@@ -161,11 +161,11 @@ enum ast_control_t38 {
 ```
 
 `AST_T38_RATE_14400` is deliberately `0` so an unspecified rate defaults to the
-highest (`include/asterisk/frame.h:385-389`), per the ITU T.38 Implementors'
+highest (`include/asterisk/frame.h:386-390`), per the ITU T.38 Implementors'
 Guide.
 
 `indicate_data_internal()` maintains the channel's T.38 active flag from these
-states (`main/channel.c:4515-4530`):
+states (`main/channel.c:4518-4529`):
 
 ```c
 	case AST_CONTROL_T38_PARAMETERS:
@@ -196,8 +196,9 @@ struct ast_control_pvt_cause_code {
 ```
 
 Another flexible-array-by-`[1]` struct. Consumed by
-`ast_channel_hangupcause_hash_set()` (`main/channel.c:4365-4377`), which stores it
-and optionally writes the `HASH(SIP_CAUSE,<chan>)` dialplan variable:
+`ast_channel_hangupcause_hash_set()` (`main/channel.c:4368-4380`), which stores it
+and optionally writes the `HASH(SIP_CAUSE,<chan>)` dialplan variable
+(`main/channel.c:4376-4379`):
 
 ```c
 	if (cause_code->emulate_sip_cause) {
@@ -208,14 +209,38 @@ and optionally writes the `HASH(SIP_CAUSE,<chan>)` dialplan variable:
 
 ### `AST_CONTROL_TRANSFER`
 
-`include/asterisk/frame.h:408-411` — the payload is just the enum:
+The payload is just the enum (`include/asterisk/frame.h:409-415`):
 
 ```c
 enum ast_control_transfer {
 	AST_TRANSFER_SUCCESS = 0, /*!< Transfer request on the channel worked */
 	AST_TRANSFER_FAILED,      /*!< Transfer request on the channel failed */
+	AST_TRANSFER_PROGRESS,    /*!< Transfer request on the channel is in progress */
+	AST_TRANSFER_UNAVAILABLE, /*!< Transfer request on the channel is unavailable */
+	AST_TRANSFER_INVALID,     /*!< Invalid state for none of the above. */
 };
 ```
+
+It is worth knowing that this used to be a two-valued success/failure enum. The
+three later members carry real meaning, so a consumer that only tests for
+`AST_TRANSFER_SUCCESS` and treats everything else as failure is now wrong:
+
+- `AST_TRANSFER_PROGRESS` is *not* terminal. `res_pjsip_refer` maps it to a SIP
+  `100 Trying` NOTIFY and leaves the subscription `PJSIP_EVSUB_STATE_ACTIVE`,
+  whereas `SUCCESS`, `FAILED` and `UNAVAILABLE` all terminate it
+  (`res/res_pjsip_refer.c:408-423`).
+- `AST_TRANSFER_UNAVAILABLE` is distinct from `FAILED` on the wire — `503`
+  rather than `603` — even though `ast_channel_transfer_state2str()` collapses
+  both to `"channel_declined"` for ARI (`main/stasis_channels.c:1652-1665`).
+- `AST_TRANSFER_INVALID` is a sentinel for "no state yet", not an outcome.
+  `res_pjsip_refer` initialises `last_response` to it
+  (`res/res_pjsip_refer.c:1599`) and the ARI `ChannelTransfer` event omits the
+  `state` field entirely when it still holds that value
+  (`main/stasis_channels.c:1755-1757`).
+
+Note also that `res_pjsip_refer` guards on
+`f->datalen >= sizeof(enum ast_control_transfer)` before dereferencing
+(`res/res_pjsip_refer.c:405-406`) — the usual discipline for a control payload.
 
 ### Connected line, redirecting and AOC payloads
 
@@ -225,23 +250,26 @@ rather than by hand:
 
 | Control | Pack | Unpack |
 |---|---|---|
-| `AST_CONTROL_CONNECTED_LINE` | `ast_connected_line_build_data()` — `include/asterisk/channel.h:3791` | `ast_connected_line_parse_data()` — `:3810` |
-| `AST_CONTROL_REDIRECTING` | `ast_redirecting_build_data()` — `include/asterisk/channel.h:3856` | `ast_redirecting_parse_data()` — `:3874` |
+| `AST_CONTROL_CONNECTED_LINE` | `ast_connected_line_build_data()` — `include/asterisk/channel.h:3832` | `ast_connected_line_parse_data()` — `:3851` |
+| `AST_CONTROL_REDIRECTING` | `ast_redirecting_build_data()` — `include/asterisk/channel.h:3897` | `ast_redirecting_parse_data()` — `:3915` |
 | `AST_CONTROL_AOC` | `ast_aoc_encode()` — `include/asterisk/aoc.h:257` | `ast_aoc_decode()` — `:244` |
 
-Signatures:
+The pack signatures. `include/asterisk/channel.h:3832`:
 
 ```c
-int ast_connected_line_build_data(unsigned char *data, size_t datalen,
-	const struct ast_party_connected_line *connected,
-	const struct ast_set_party_connected_line *update);
+int ast_connected_line_build_data(unsigned char *data, size_t datalen, const struct ast_party_connected_line *connected, const struct ast_set_party_connected_line *update);
+```
 
-int ast_redirecting_build_data(unsigned char *data, size_t datalen,
-	const struct ast_party_redirecting *redirecting,
-	const struct ast_set_party_redirecting *update);
+`include/asterisk/channel.h:3897`:
 
-struct ast_aoc_encoded *ast_aoc_encode(struct ast_aoc_decoded *decoded,
-	size_t *out_size, struct ast_channel *chan);
+```c
+int ast_redirecting_build_data(unsigned char *data, size_t datalen, const struct ast_party_redirecting *redirecting, const struct ast_set_party_redirecting *update);
+```
+
+`include/asterisk/aoc.h:257`:
+
+```c
+struct ast_aoc_encoded *ast_aoc_encode(struct ast_aoc_decoded *decoded, size_t *out_size, struct ast_channel *chan);
 ```
 
 The `build_data` functions return the number of bytes written (or -1), which is
@@ -249,7 +277,7 @@ what you put in the frame's `datalen`. The AOC encoded object must be released
 with `ast_aoc_destroy_encoded()` (`include/asterisk/aoc.h:231`).
 
 `indicate_data_internal()` preprocesses the first two before handing them to the
-driver (`main/channel.c:4499-4510`), and will quietly succeed without calling the
+driver (`main/channel.c:4502-4507`), and will quietly succeed without calling the
 driver if the preprocessing says the update is redundant:
 
 ```c
@@ -323,12 +351,12 @@ int ast_indicate(struct ast_channel *chan, int condition)
 
 ### `indicate_data_internal()` in order
 
-`main/channel.c:4489-4670`. The structure matters because it determines what a
+`main/channel.c:4492-4674`. The structure matters because it determines what a
 driver can and cannot rely on:
 
-1. **Pre-processing switch** (`:4498-4533`) — connected line, redirecting, hold
+1. **Pre-processing switch** (`main/channel.c:4501-4536`) — connected line, redirecting, hold
    state, T.38 active flag. Note `AST_CONTROL_HOLD`/`UNHOLD` set the channel's
-   hold state *before* the driver sees the indication:
+   hold state *before* the driver sees the indication (`main/channel.c:4514-4517`):
    ```c
    	case AST_CONTROL_HOLD:
    	case AST_CONTROL_UNHOLD:
@@ -336,7 +364,7 @@ driver can and cannot rely on:
    		break;
    ```
 
-2. **Visible-indication bookkeeping** (`:4535-4541`):
+2. **Visible-indication bookkeeping** (`main/channel.c:4538-4544`):
    ```c
    	if (is_visible_indication(condition)) {
    		/* A new visible indication is requested. */
@@ -347,11 +375,11 @@ driver can and cannot rely on:
    	}
    ```
 
-3. **Ask the driver** (`:4543-4554`). If `tech->indicate` returns 0, we are done.
+3. **Ask the driver** (`main/channel.c:4546-4557`). If `tech->indicate` returns 0, we are done.
    If there is no `indicate` callback at all, `res = -1` and we fall through to
    emulation.
 
-4. **Negative condition means stop** (`:4562-4567`):
+4. **Negative condition means stop** (`main/channel.c:4565-4570`):
    ```c
    	if (_condition < 0) {
    		/* Stop any tones that are playing */
@@ -360,22 +388,22 @@ driver can and cannot rely on:
    		return res;
    	}
    ```
-   With a comment at `:4559-4561` explaining why the comparison is on the `int`
+   With a comment at `main/channel.c:4562-4564` explaining why the comparison is on the `int`
    and not the enum: a compiler may optimise away a `< 0` test on an enum with no
    negative constants.
 
-5. **Tone emulation switch** (`:4570-4650`). RINGING → "ring", BUSY → "busy",
+5. **Tone emulation switch** (`main/channel.c:4573-4654`). RINGING → "ring", BUSY → "busy",
    INCOMPLETE/CONGESTION → "congestion". Everything else is a no-op that sets
    `res = 0`.
 
-6. **Play the tone if we found one** (`:4652-4662`), logging at debug level 1 that
+6. **Play the tone if we found one** (`main/channel.c:4656-4666`), logging at debug level 1 that
    the driver did not support the indication and we are faking it.
 
-7. **Warn if nothing handled it** (`:4664-4667`).
+7. **Warn if nothing handled it** (`main/channel.c:4668-4671`).
 
 ### `is_visible_indication()`
 
-`main/channel.c:4301-4363`. It answers "can the far end *hear* this?", which
+`main/channel.c:4303-4366`. It answers "can the far end *hear* this?", which
 determines whether the core needs to remember and re-apply it across a
 masquerade or bridge change.
 
@@ -416,20 +444,20 @@ Worth its own section because it is unintuitive.
 When a channel is soft-hung-up, there may still be useful frames sitting in the
 readq. Dropping them would lose, say, the DTMF digit that triggered the hangup. So
 the core queues an `AST_CONTROL_END_OF_Q` frame to mark the boundary
-(`main/channel.c:3557-3574`), and `__ast_read()` keeps serving the readq until it
+(`main/channel.c:3558-3571`), and `__ast_read()` keeps serving the readq until it
 reaches that marker.
 
 `__ast_read()` then treats `END_OF_Q` like `HANGUP` — frees the frame and returns
-NULL (`main/channel.c:3685-3758`):
+NULL (`main/channel.c:3706-3718`, the free itself at `main/channel.c:3713-3714`):
 
 ```c
-			ast_frfree(f);
-			f = NULL;
+				ast_frfree(f);
+				f = NULL;
 ```
 
 And `__ast_queue_frame()` collapses the two: if a HANGUP arrives while an
 `END_OF_Q` is already the last frame in the queue, the `END_OF_Q` is replaced
-rather than both being kept (`main/channel.c:1044-1060`).
+rather than both being kept (`main/channel.c:1057-1086`).
 
 ---
 
