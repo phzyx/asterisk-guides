@@ -33,7 +33,7 @@ masquerade, the tech vtable and drivers, and snapshots and debugging. All 245
 quoted blocks verify whitespace-exact against the `24` tree, the one exception
 being a deliberate anti-pattern.
 
-### 2. ao2 objects, refcounting and containers — *in progress*
+### 2. ao2 objects, refcounting and containers — *written* ([ao2/](ao2/README.md))
 
 | | |
 |---|---|
@@ -46,6 +46,12 @@ sites outside the ao2 implementation itself: `ao2_ref` 2,961, `RAII_VAR` 2,727,
 subsystem reads cleanly without this. Covers destructors and the "destructor runs
 with no lock held" trap, `ao2_bump`/`cleanup`/`replace`, container types and
 traversal callbacks, `OBJ_NOLOCK` vs `OBJ_MULTIPLE`, weak proxies, `REF_DEBUG`.
+
+Shipped as eight files: an overview plus chapters on objects and allocation,
+refcounting and destruction, locking, containers, traversal and iterators, weak
+proxies and global objects, and debugging. All 217 quoted blocks verify
+whitespace-exact against the `24` tree, the two exceptions being deliberate
+anti-patterns.
 
 ### 3. Threading, locking and deadlock avoidance
 
@@ -128,30 +134,55 @@ guide.
 
 ## Maintenance debt
 
-**Re-verify the frames guide against `24`.** It was originally written against
-22.2.0. Its header now says `24` along with everything else, but the
-re-verification has not been done: measured against the `24` tree, 127 of its
-171 quoted C blocks are still verbatim and 44 are not. Of those 44, 16 are
-illustrative snippets the guide wrote itself and were never quotes, so the real
-stale count is 28:
+**The frames guide has been re-verified against `24`** — *done*. It was
+originally written against 22.2.0 and later relabelled, which rewrote the header
+banner but not the line numbers; 44 of its 171 quoted C blocks did not verify.
+All eight chapters now read 162 verbatim, 0 not found, with 14 blocks explicitly
+marked `<!-- illustrative -->` (see below). Every `file:line` citation in the
+prose was re-grepped as well, not just the machine-checkable blocks, and all ten
+items in chapter 08's bug list were re-confirmed live on `24`.
 
-| Chapter | Verbatim | Stale quotes | Own examples |
-|---|---|---|---|
-| `01-anatomy.md` | 13 | 3 | 0 |
-| `02-frame-types.md` | 5 | 0 | 0 |
-| `03-memory-and-ownership.md` | 12 | 4 | 2 |
-| `04-control-frames.md` | 15 | 2 | 0 |
-| `05-channel-path.md` | 28 | 12 | 0 |
-| `06-translation-and-timing.md` | 10 | 6 | 0 |
-| `07-interception.md` | 34 | 0 | 3 |
-| `08-debugging-and-recipes.md` | 10 | 1 | 11 |
+Three of the corrections were substantive rather than positional:
 
-The damage is concentrated: chapters 05 and 06 account for 18 of the 28, which
-is unsurprising given that `main/channel.c` and `main/translate.c` are the two
-most actively changed files the guide cites. Chapters 02 and 07 need nothing.
-Every `file:line` citation in the affected chapters needs re-grepping too, not
-just the quoted blocks — the blocks are only the machine-checkable part. The
-guide's overview says so plainly, which is what keeps the relabelling honest
-rather than misleading. Chapter 08's bug list is the other loose end: items 1,
-6, 7 and 8 were re-confirmed present on `24`, the remaining six were not
-re-checked and some may have been fixed upstream.
+- Chapter 05 picked up three branch-`24` behaviour changes — commit `5963e624e2`
+  demoted the missing-`fdno` warning from `LOG_ERROR` to `ast_debug(3, ...)`,
+  `e200f51ea4` removed the generator-fd branch and relabelled
+  `AST_GENERATOR_FD` unused (the 13-step walkthrough is now 12), and `7b8339fb52`
+  added a NULL-timer guard at the four 50 fps DTMF timer arm sites.
+- Chapter 06 picked up commit `4b9ef3f5e2` (configurable `comp_cost` sample
+  types, the `translate sampletype` CLI, the pre-encode pool) and `b49e36c1e4`,
+  whose `ast_frame_adjust_volume` dB-versus-linear-gain documentation fix also
+  exposed a wrong "power of two shift" claim in the guide itself.
+- Chapter 08's bug 3 described the wrong mechanism. The "returns success after
+  giving up" behaviour in `ast_write_stream()` is not `CHECK_BLOCKING`; it is the
+  `ast_channel_trylock()` retry loop that bails out after eleven attempts, and
+  because it returns before the `done:` label the frame is not freed either. Bug
+  6's latency claim was also over-broad and is now scoped to the call sites that
+  can actually carry an RTCP frame.
+
+**New: the `<!-- illustrative -->` marker.** `checkall.py` compares every fenced
+block against the tree, which means a block the guide wrote itself — an
+anti-pattern shown deliberately, a recipe skeleton with invented names — could
+never verify and showed up as a permanent failure. Fourteen such blocks in
+frames, one in channels and two in ao2 now carry an HTML comment on the line
+above the fence; both `checkall.py` and `pin.py` honour it and report those
+blocks in their own category instead of as failures. It is invisible in the
+rendered page and explicit in the markdown, so a clean run means something again.
+
+**Channels and ao2 citation pinning has not been done.** `checkall.py` only asks
+whether a quoted block exists *somewhere* in the tree, so a correct quote with a
+wrong line number passes clean — which is exactly how the frames drift went
+unnoticed. The new `pin.py` closes that gap by binding each fenced block to its
+adjacent citation and comparing the exact cited range. Run across channels and
+ao2 it reports 202 OK against 51 `OTHER`, 30 `SHIFT`, 23 `NOFILE` and 48
+`UNPAIRED`, with 269 blocks it could not pair with a citation at all. Those
+figures are an upper bound on real drift, not a measurement of it: both guides
+place the citation on the line *after* the closing fence but as a sentence-initial
+code span, and `pin.py`'s `pick_cite()` only accepts a post-fence citation when
+the line opens with a dash or a parenthesis. It therefore falls back to a 14-line
+lookback and picks up the *previous* block's citation, producing a visible
+lag-by-one cascade. A further 23 citations are written as bare basenames
+(`astobj2.h:373`) that `pin.py` cannot resolve against its full-path corpus.
+Teaching `pick_cite()` the sentence-initial convention and resolving basenames is
+the prerequisite for measuring these two guides honestly; some of the same-file
+`SHIFT` entries may well be real and will need checking individually.

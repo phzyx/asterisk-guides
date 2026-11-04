@@ -87,6 +87,7 @@ chain**. This is intentional and convenient for translator output, and lethal if
 `f` is still linked into a queue you care about. Before freeing one frame out of a
 list, null its link:
 
+<!-- illustrative -->
 ```c
 	AST_LIST_NEXT(f, frame_list) = NULL;
 	ast_frfree(f);
@@ -117,7 +118,8 @@ which is exactly what `channel.c` does in several places, e.g.
    		fr->mallocd = 0;
    	}
    ```
-   This is how a static header can be reused after its payload is freed.
+   — `main/frame.c:170-172`. This is how a static header can be reused after
+   its payload is freed.
 
 ### `ast_frame_dtor(f)`
 
@@ -214,6 +216,7 @@ Its three-way behaviour:
 
 - **Always use the return value.** `ast_frisolate(f)` may return `f`, or a new
   frame, or `NULL` on allocation failure.
+  <!-- illustrative -->
   ```c
   	/* WRONG */
   	ast_frisolate(f);

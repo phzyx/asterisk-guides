@@ -569,6 +569,7 @@ first line is what happens to anyone who gets there by accident. The following
 is the one code block in this chapter that is **not** quoted from the tree — it
 is the mistake, written out:
 
+<!-- illustrative -->
 ```c
 	/* Looks like a 563-bucket hash container.  Is a linked list. */
 	c = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0, 563, NULL,

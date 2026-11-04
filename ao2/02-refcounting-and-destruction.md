@@ -612,6 +612,7 @@ expression — note the `{` at `:505` where `ao2_bump` has `({`. So
 `ao2_replace(a, b);` becomes `{ ... };`, a compound statement followed by an
 empty one, and that breaks the one construct where a trailing semicolon matters:
 
+<!-- illustrative -->
 ```c
 /* WRONG — does not compile */
 if (want_new)

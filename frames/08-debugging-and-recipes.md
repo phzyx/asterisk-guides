@@ -44,9 +44,9 @@ The CLI command:
 Usage: core set debug channel <all|channel> [off]
        Enables/disables debugging on all or on a specific channel.
 ```
-— `main/cli.c:1522-1525`
+— `main/cli.c:1632-1633`
 
-`all` sets the flag in the two globals (`main/cli.c:1554-1561`) *and* walks every
+`all` sets the flag in the two globals (`main/cli.c:1659-1667`) *and* walks every
 existing channel. The globals are copied into each new channel at allocation
 time:
 
@@ -57,7 +57,7 @@ time:
 — `main/channel.c:864-865`
 
 which is what the CLI means by `"Debugging on new channels is enabled"`
-(`main/cli.c:1572`). Naming a single channel sets the flag on that channel only
+(`main/cli.c:1677`). Naming a single channel sets the flag on that channel only
 and leaves the globals alone, so the setting does not survive a masquerade into
 a freshly-allocated channel.
 
@@ -102,8 +102,8 @@ you enable it on a production box.
   consumed internally (a swallowed CONTROL, a DTMF_BEGIN absorbed by the
   emulator); they return `&ast_null_frame` or `NULL` and get dumped as that.
 - The **write** dump is *before* the frametype switch, but *after* the framehook
-  write event (`:5217`) and *after* the generator interception block (which
-  `goto done`s at `:5244`, skipping the dump entirely). So a frame suppressed by
+  write event (`:5221`) and *after* the generator interception block (which
+  `goto done`s at `:5248`, skipping the dump entirely). So a frame suppressed by
   a generator never appears.
 
 Neither dump sees frames moving through `ast_queue_frame()`. If you need to see
@@ -161,7 +161,7 @@ mislabelled.
 		break;
 	}
 ```
-— `main/frame.c:661-665`
+— `main/frame.c:661-666`
 
 The RTCP case falls through into `default:` and the `"RTCP"` string is
 immediately overwritten with `"Unknown Subclass"`. Harmless in practice only
@@ -175,18 +175,18 @@ answer. A one-line fix if you want it.
 
 | Lever | Where | What it gives you |
 | --- | --- | --- |
-| `core show settings` | `main/asterisk.c:561` | prints `Cache media frames: Enabled/Disabled` |
-| `cache_media_frames = no` in `asterisk.conf` | `configs/samples/asterisk.conf.sample:49`, parsed at `main/options.c:361-362` | disables the per-thread frame header cache at runtime |
+| `core show settings` | `main/asterisk.c:567` | prints `Cache media frames: Enabled/Disabled` |
+| `cache_media_frames = no` in `asterisk.conf` | `configs/samples/asterisk.conf.sample:53`, parsed at `main/options.c:363-364` | disables the per-thread frame header cache at runtime |
 | `--enable-dev-mode` | configure | turns on `ast_assert()`, including the bridge sync self-wait guard and the `fdno == -1` check |
 | `MALLOC_DEBUG` | menuselect | compiles out the frame cache entirely (`NO_FRAME_CACHE`) and tracks every allocation |
 | `LOW_MEMORY` | menuselect | also compiles out the frame cache |
-| `ast_debug(4, ...)` | `main/channel.c:1124` | `"Discarded %d frames due to queue overload on %s"` |
+| `ast_debug(4, ...)` | `main/channel.c:1137` | `"Discarded %d frames due to queue overload on %s"` |
 
 The cache interaction is the one that bites. Under normal builds, freed frame
 headers go onto a per-thread free list of up to `FRAME_CACHE_MAX_SIZE` (10)
 rather than back to the allocator, gated at runtime on
 `ast_opt_cache_media_frames` (`main/frame.c:130`). The default is on
-(`AST_DEFAULT_OPTIONS` in `include/asterisk/options.h:106`). Consequences:
+(`AST_DEFAULT_OPTIONS` in `include/asterisk/options.h:116`). Consequences:
 
 - **A leaked frame header may not show up as a leak**, because the cache holds
   headers legitimately. Set `cache_media_frames = no` before a leak hunt.
@@ -208,10 +208,9 @@ build.
 Collected from the rest of this guide, in rough order of how likely they are to
 matter to you.
 
-This list was compiled when the guide was written and has only been spot-checked
-since the baseline moved to `24` — items 1, 6, 7 and 8 were re-confirmed
-present, the rest were not re-checked. Confirm any of these against your own
-tree before acting on it, and expect some to have been fixed upstream.
+Every item below was re-confirmed present on the `24` branch at the time of
+writing. Confirm against your own tree before acting on any of them — the point
+of the citations is that you can.
 
 ### 1. `ast_frame_enqueue()` is declared but never defined
 
@@ -246,14 +245,50 @@ CONTROL/ANSWER frame, fix this first.
 
 ### 3. `ast_write()` returns success after giving up on a deadlock
 
-The `CHECK_BLOCKING` / `AST_FLAG_BLOCKING` guard in `ast_write_stream()` returns
-0 — success — when it declines to write to avoid a deadlock. The caller cannot
-tell the frame was dropped. See [05-channel-path.md](05-channel-path.md).
+`ast_write_stream()` opens with a `trylock` retry loop rather than a plain
+`ast_channel_lock()`, and after twelve failed attempts it gives up — `count` is
+post-incremented, so `count++ > 10` first holds on the twelfth:
+
+```c
+	/*Deadlock avoidance*/
+	while(ast_channel_trylock(chan)) {
+		/*cannot goto done since the channel is not locked*/
+		if(count++ > 10) {
+			ast_debug(1, "Deadlock avoided for write to channel '%s'\n", ast_channel_name(chan));
+			return 0;
+		}
+		usleep(1);
+	}
+```
+— `main/channel.c:5180-5188`
+
+That `return 0` is **success**, on a path where nothing was written, and the
+caller cannot tell the frame was dropped. There is no leak — `ast_write_stream()`
+never owns `fr` on any path, and at the early return the intermediate `f` is still
+`NULL` — but a caller that counts writes, or that treats a 0 as "the far end has
+it", is wrong under lock contention and has no way to find out. Re-confirmed
+present on `24`. See [05-channel-path.md](05-channel-path.md).
 
 ### 4. `tech_write()` returns 0 when no stream matches
 
-Both no-stream paths return 0, so a write to an unmapped stream looks like a
-successful write. See [05-channel-path.md](05-channel-path.md).
+```c
+static int tech_write(struct ast_channel *chan, struct ast_stream *stream,
+			struct ast_stream *default_stream, struct ast_frame *frame)
+{
+	if (ast_channel_tech(chan)->write_stream) {
+		return stream ? ast_channel_tech(chan)->write_stream(
+			chan, ast_stream_get_position(stream), frame) : 0;
+	}
+
+	return ((stream == default_stream) && ast_channel_tech(chan)->write) ?
+		ast_channel_tech(chan)->write(chan, frame) : 0;
+}
+```
+— `main/channel.c:5155-5165`
+
+Both `: 0` arms return 0, so a write to an unmapped stream, or to a non-default
+stream on a driver that only has `write`, looks like a successful write.
+Re-confirmed present on `24`. See [05-channel-path.md](05-channel-path.md).
 
 ### 5. The `default:` case in `ast_write_stream()` calls `tech->write` directly
 
@@ -276,8 +311,15 @@ calls `tech_write()` (which checks) or tests the callback first. See
 ### 6. `ast_translate()` ignores `consume` for RTCP
 
 The RTCP short-circuit returns the frame *before* the `consume` check, so
-`ast_translate(path, rtcp_frame, 1)` leaks the input. Both in-tree call sites
-pass 0, so it is latent. See
+`ast_translate(path, rtcp_frame, 1)` leaks the input. It is latent because the one
+call site that can carry an RTCP frame — `main/channel.c:4241`, the
+`case AST_FRAME_RTCP:` arm of `__ast_read()` — passes 0. Of the fourteen
+`ast_translate()` call sites outside `main/translate.c`, three pass a non-zero
+`consume`: `main/channel.c:4190` sits inside `case AST_FRAME_VOICE:`,
+`main/audiohook.c:773` translates a slin frame pulled from a slinfactory, and
+`res/res_fax.c:3681` is both guarded by `f->frametype == AST_FRAME_VOICE` and
+conditional (`event == AST_FRAMEHOOK_EVENT_WRITE ? 0 : 1`). All three are
+frametype-guarded, so this stays a trap for new code rather than a live bug. See
 [06-translation-and-timing.md](06-translation-and-timing.md).
 
 ### 7. Missing `break` after the RTCP case in `ast_frame_subclass2str()`
@@ -291,29 +333,47 @@ pass 0, so it is latent. See
 ### 9. Audiohook manipulate failures are discarded
 
 ```c
-			/*
-			 * XXX FAILURES ARE IGNORED XXX
+			if (!audiohook->manipulate_callback(audiohook, chan, middle_frame, direction)) {
+				/*
+				 * XXX FAILURES ARE IGNORED XXX
+				 * If the manipulation fails then the frame will be returned in its original state.
+				 * Since there are potentially more manipulator callbacks in the list, no action should
+				 * be taken here to exit early.
+				 */
+				middle_frame_manipulated = 1;
+			}
 ```
-— `main/audiohook.c:1057-1062`
+— `main/audiohook.c:1385-1393`
 
-The callback's return value sets `middle_frame_manipulated` but is never
-propagated to the caller.
+`middle_frame_manipulated = 1` is set only on success — the callback returns 0 on
+success (`include/asterisk/audiohook.h:85-86`), so the assignment sits inside the
+`if (!...)`. The failure is what disappears: it is not propagated to the caller of
+`ast_audiohook_write_list()` and nothing is logged, so a manipulator that failed
+and one that was never reached are indistinguishable from outside.
 
 ### 10. The autoservice DTMF audiohook `\todo`
 
-An in-tree `\todo` notes that the DTMF path can write a frame to the audiohook
-list twice when autoservice is involved. See
+An in-tree `\todo` at `main/channel.c:3934-3935` notes that the DTMF path can
+write a digit to the audiohook list twice "if the digit was originally read
+while the channel was in autoservice". See
 [05-channel-path.md](05-channel-path.md) §DTMF.
 
 ---
 
 ## 8.4 Recipes
 
+Unlike every other code block in this guide, the blocks in this section are
+**written for the guide rather than quoted from the tree** — they are the
+shapes the patterns take, with the surrounding error handling and locking left
+in but the names invented. Citations here point at the real thing to compare
+against.
+
 ### Recipe: a stack frame, queued
 
 The commonest pattern in the tree. Build it on the stack, let the queue
 duplicate it, never free anything.
 
+<!-- illustrative -->
 ```c
 	struct ast_frame f = {
 		.frametype = AST_FRAME_CONTROL,
@@ -326,6 +386,7 @@ duplicate it, never free anything.
 
 With a payload — the payload is borrowed, and is also copied by the `frdup`:
 
+<!-- illustrative -->
 ```c
 	struct ast_control_t38_parameters parameters = {
 		.request_response = AST_T38_NEGOTIATED,
@@ -350,6 +411,7 @@ is to stash `&f` or `&parameters` anywhere that outlives the function.
 The RTP driver's pattern — a frame embedded in the instance struct, payload
 pointing into an instance-owned buffer, `mallocd = 0`:
 
+<!-- illustrative -->
 ```c
 struct my_rtp_instance {
 	struct ast_frame f;
@@ -369,8 +431,8 @@ struct my_rtp_instance {
 	return &instance->f;
 ```
 
-See `res/res_rtp_asterisk.c:390` for the buffer declaration and `:5905-5906`,
-`:6157-6159` for the real version. The `AST_FRIENDLY_OFFSET` headroom is what
+See `res/res_rtp_asterisk.c:396` for the buffer declaration, `:8201-8208` for
+the real media-frame assembly and `:6048-6052` for the DTMF one. The `AST_FRIENDLY_OFFSET` headroom is what
 lets a downstream consumer prepend a header without reallocating. Three rules:
 
 - `mallocd = 0` means the core will not free it, so the frame is only valid
@@ -384,6 +446,7 @@ lets a downstream consumer prepend a header without reallocating. Three rules:
 
 ### Recipe: a read-only framehook that does not break native bridging
 
+<!-- illustrative -->
 ```c
 static int my_consume(void *data, enum ast_frame_type type)
 {
@@ -438,7 +501,8 @@ static void my_destroy(void *data)
 
 The `consume_cb` is the whole point: without it, `ast_channel_has_hook_requiring_audio()`
 returns true and every bridge this channel joins is forced out of native
-bridging. See `main/framehook.c:300-311`.
+bridging. See `ast_framehook_list_contains_no_active_of_type()`,
+`main/framehook.c:282-311`.
 
 Note that the channel must be locked across `ast_framehook_attach()`
 (`include/asterisk/framehook.h:265`), and that attach calls your `event_cb` with
@@ -447,6 +511,7 @@ initialised first.
 
 ### Recipe: a framehook that replaces a frame
 
+<!-- illustrative -->
 ```c
 	new_frame = make_replacement(frame);
 	if (!new_frame) {
@@ -459,6 +524,7 @@ initialised first.
 
 And to drop a frame entirely:
 
+<!-- illustrative -->
 ```c
 	ast_frfree(frame);
 	return NULL;
@@ -470,6 +536,7 @@ frame sooner than you expect, and other hooks will see your replacement.
 
 ### Recipe: isolating a frame you need to keep
 
+<!-- illustrative -->
 ```c
 	struct ast_frame *keeper;
 
@@ -482,6 +549,7 @@ frame sooner than you expect, and other hooks will see your replacement.
 
 Use `ast_frisolate()` instead when you want to *avoid* a copy where possible:
 
+<!-- illustrative -->
 ```c
 	struct ast_frame *isolated;
 
@@ -503,6 +571,7 @@ pointer it was given. Never write `ast_frfree(f); use(isolated);` without it.
 Frames are a list, and `ast_read()`/`ast_translate()` can hand you more than
 one:
 
+<!-- illustrative -->
 ```c
 	struct ast_frame *cur, *next;
 
@@ -521,6 +590,7 @@ explicit. See [03-memory-and-ownership.md](03-memory-and-ownership.md).
 
 ### Recipe: inside `bridge_channel.c`
 
+<!-- illustrative -->
 ```c
 	bridge_frame_free(fr);      /* NOT ast_frfree(fr) */
 ```
@@ -531,6 +601,7 @@ originating thread blocked for `PLAYBACK_TIMEOUT` — ten minutes
 
 ### Recipe: do not free these
 
+<!-- illustrative -->
 ```c
 	if (f == &ast_null_frame) {
 		/* shared global. Do not free, do not modify. */
@@ -548,12 +619,13 @@ accidentally mutating it. Never `ast_frdup()` it either — just return it onwar
 
 **"My frames are not arriving."**
 Check, in order: is the queue overloaded (`"Exceptionally long ... queue
-length"` at `main/channel.c:1105`)? Is the frame type droppable — only VOICE,
-VIDEO and NULL are flushed (`:1111`)? Is the stream mapped — unmapped media is
-dropped silently in both `ast_bridge_channel_queue_frame()` (`:1033-1036`) and
-`bridge_channel_handle_write()` (`:2453-2455`)? Is the bridge channel suspended
+length"` at `main/channel.c:1118`)? Is the frame type droppable — only VOICE,
+VIDEO and NULL are flushed (`:1124`), and at most 64 of them (`:1125-1127`)? Is
+the stream mapped — unmapped media is dropped silently in both
+`ast_bridge_channel_queue_frame()` (`main/bridge_channel.c:1043-1046`) and
+`bridge_channel_handle_write()` (`:2463-2465`)? Is the bridge channel suspended
 and the frame not deferrable (`ast_is_deferrable_frame()`,
-`main/channel.c:1486`)?
+`main/channel.c:1454-1482`)?
 
 **"Frames arrive out of order or doubled."**
 Suspect the framehook re-run loop — a hook returning a new pointer causes the

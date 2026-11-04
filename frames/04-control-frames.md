@@ -420,15 +420,16 @@ Returns 1 for exactly six conditions (`main/channel.c:4351-4358`):
 		return 1;
 ```
 
-and `AST_CONTROL_UNHOLD` is called out as the inverse (`:4357-4359`):
+and `AST_CONTROL_UNHOLD` is called out as the inverse:
 
 ```c
 	case AST_CONTROL_UNHOLD:
 		/* This is a special case.  You stop hearing this. */
 		break;
 ```
+— `main/channel.c:4360-4362`
 
-Note the deliberate absence of a `default:` label (`main/channel.c:4303-4304`):
+Note the deliberate absence of a `default:` label (`main/channel.c:4305-4306`):
 
 > Don't include a default case here so that we get compiler warnings when a new
 > type is added.

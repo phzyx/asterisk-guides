@@ -176,6 +176,7 @@ Three correct ways to read a channel's name:
 
 What is *not* correct is the very common-looking
 
+<!-- illustrative -->
 ```c
 /* WRONG */
 const char *name = ast_channel_name(chan);   /* no lock held */

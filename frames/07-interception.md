@@ -144,8 +144,10 @@ Four rules fall out of that:
    calls that might take the channel lock again in a non-recursive path, and no
    calling back into `ast_read()`/`ast_write()` on this channel.
 
-A minimal correct replacement looks like:
+A minimal correct replacement looks like this — illustrative code, not a quote
+from the tree:
 
+<!-- illustrative -->
 ```c
 static struct ast_frame *my_cb(struct ast_channel *chan, struct ast_frame *frame,
 	enum ast_framehook_event event, void *data)
@@ -212,7 +214,7 @@ loop semantics are surprising:
 
 	return frame;
 ```
-— `main/framehook.c:94-130`
+— `main/framehook.c:94-129`
 
 What this means in practice:
 
@@ -245,9 +247,9 @@ and not keyed by hook id.
 
 | Direction | Call site | Notes |
 | --- | --- | --- |
-| Read | `main/channel.c:3803` | `f = ast_framehook_list_read_event(..., f);` — after the driver produced `f`, before the frametype switch |
-| Write | `main/channel.c:5217` | only when `stream == default_stream`; `fr` itself is reassigned |
-| Write (indications) | `main/channel.c:4701` | `ast_indicate_data()` builds a stack CONTROL frame, `ast_frdup()`s it, and pushes it through the write event |
+| Read | `main/channel.c:3785` | `f = ast_framehook_list_read_event(..., f);` — after the driver produced `f`, before the frametype switch |
+| Write | `main/channel.c:5221` | only when `stream == default_stream`; `fr` itself is reassigned |
+| Write (indications) | `main/channel.c:4705` | `ast_indicate_data()` builds a stack CONTROL frame, `ast_frdup()`s it, and pushes it through the write event |
 
 The read-side entry point is the thin wrapper pair at the bottom of the file:
 
@@ -344,7 +346,7 @@ actually consulted:
 
 	return 1;
 ```
-— `main/framehook.c:300-311`
+— `main/framehook.c:300-310`
 
 So a hook that implements `consume_cb` and returns 0 for `AST_FRAME_VOICE` lets
 the bridge stay in a native (non-media-passing) bridge technology. **This is
@@ -486,36 +488,36 @@ audiohook.** Only the END frame does, and only hooks with
 
 Note the DTMF path only visits the `manipulate_list` — SPY and WHISPER hooks
 never see DTMF at all. Its return value is also ignored, and the frame is always
-returned unchanged (`:815`).
+returned unchanged (`main/audiohook.c:1144`).
 
 ### The voice path in three parts
 
-`audio_audiohook_write_list()` at `main/audiohook.c:942` is documented by its own
+`audio_audiohook_write_list()` at `main/audiohook.c:1271` is documented by its own
 header comment and does exactly what it says:
 
-1. **Translate to slin.** `audiohook_list_translate_to_slin()` (`:818`)
+1. **Translate to slin.** `audiohook_list_translate_to_slin()` (`:1147`)
    produces `middle_frame`, which may be `start_frame` itself if the frame is
    already slin at the list's internal rate. The list's rate floats up to the
    max it has seen:
 
    ```c
-	audiohook_list->list_internal_samp_rate =
-		MAX(ast_format_get_sample_rate(frame->subclass.format), audiohook_list->list_internal_samp_rate);
+   	audiohook_list->list_internal_samp_rate =
+   		MAX(ast_format_get_sample_rate(frame->subclass.format), audiohook_list->list_internal_samp_rate);
    ```
    — `main/audiohook.c:1161-1162`
 
    An **interpolated frame short-circuits the whole thing**:
 
    ```c
-	/* If the translation resulted in an interpolated frame then immediately return as audiohooks
-	 * rely on actual media being present to do things.
-	 */
-	if (!middle_frame->data.ptr) {
-		if (middle_frame != start_frame) {
-			ast_frfree(middle_frame);
-		}
-		return start_frame;
-	}
+   	/* If the translation resulted in an interpolated frame then immediately return as audiohooks
+   	 * rely on actual media being present to do things.
+   	 */
+   	if (!middle_frame->data.ptr) {
+   		if (middle_frame != start_frame) {
+   			ast_frfree(middle_frame);
+   		}
+   		return start_frame;
+   	}
    ```
    — `main/audiohook.c:1285-1293`
 
@@ -528,24 +530,25 @@ header comment and does exactly what it says:
    stack `short combine_buf[samples]`. Manipulators get the frame directly.
    Any hook whose `status != AST_AUDIOHOOK_STATUS_RUNNING` is removed from the
    list in place, moved to `STATUS_DONE`, and — for manipulators — poked one
-   last time with a `NULL` frame so it can tear itself down (`:1046`).
+   last time with a `NULL` frame so it can tear itself down (`:1375`).
 
-3. **Translate back if touched.** Only if `middle_frame_manipulated` is set:
+3. **Translate back if touched.** Only if `middle_frame_manipulated` is set —
+   `audiohook_list_translate_to_native()` is at `:1193`:
 
    ```c
-	if (middle_frame_manipulated) {
-		if (!(end_frame = audiohook_list_translate_to_native(audiohook_list, direction, middle_frame, start_frame->subclass.format))) {
-			/* translation failed, so just pass back the input frame */
-			end_frame = start_frame;
-		}
-	} else {
-		end_frame = start_frame;
-	}
-	/* clean up our middle_frame if required */
-	if (middle_frame != end_frame) {
-		ast_frfree(middle_frame);
-		middle_frame = NULL;
-	}
+   	if (middle_frame_manipulated) {
+   		if (!(end_frame = audiohook_list_translate_to_native(audiohook_list, direction, middle_frame, start_frame->subclass.format))) {
+   			/* translation failed, so just pass back the input frame */
+   			end_frame = start_frame;
+   		}
+   	} else {
+   		end_frame = start_frame;
+   	}
+   	/* clean up our middle_frame if required */
+   	if (middle_frame != end_frame) {
+   		ast_frfree(middle_frame);
+   		middle_frame = NULL;
+   	}
    ```
    — `main/audiohook.c:1400-1412`
 
@@ -590,7 +593,7 @@ back-translation is needed. The "failures are ignored" complaint is that the
  * \note A failure return value indicates that the frame was not manipulated and that
  *       is being returned in its original state.
 ```
-— `include/asterisk/audiohook.h:87-96`
+— `include/asterisk/audiohook.h:87-95`
 
 Unlike a framehook, a manipulate callback **must not free or replace the frame**.
 It mutates `frame->data.ptr` in place, or it returns -1 and leaves it alone.
@@ -615,13 +618,13 @@ enum ast_audiohook_init_flags {
 
 | Path | Call sites | Notes |
 | --- | --- | --- |
-| Read, DTMF | `main/channel.c:3949`, `:4011`, `:4056`, `:4107` | four separate points in the DTMF state machine |
-| Read, voice (pre-translate) | `main/channel.c:4180` | only when the frame is already slin; sets `hooked = 1` |
-| Read, voice (post-translate) | `main/channel.c:4198` | the normal case |
-| Write, DTMF_BEGIN / DTMF_END | `main/channel.c:5258`, `:5271` | |
-| Write, voice (pre-translate) | `main/channel.c:5333` | slin only |
-| Write, voice (post-translate) | `main/channel.c:5395` | iterates the possibly-multi-frame list |
-| Teardown | `main/channel.c:4267`, `:5498` | `ast_audiohook_write_list_empty()` → `destroy_hooks()` |
+| Read, DTMF | `main/channel.c:3936`, `:4008`, `:4053`, `:4109` | four separate points in the DTMF state machine |
+| Read, voice (pre-translate) | `main/channel.c:4182` | only when the frame is already slin; sets `hooked = 1` |
+| Read, voice (post-translate) | `main/channel.c:4200` | the normal case |
+| Write, DTMF_BEGIN / DTMF_END | `main/channel.c:5262`, `:5275` | |
+| Write, voice (pre-translate) | `main/channel.c:5337` | slin only |
+| Write, voice (post-translate) | `main/channel.c:5399` | iterates the possibly-multi-frame list |
+| Teardown | `main/channel.c:4269`, `:5502` | `ast_audiohook_write_list_empty()` → `ast_audiohook_detach_list()` |
 
 The read path's two-call structure exists so that a channel already running slin
 avoids a pointless slin→slin round trip. `hooked` records which one fired so the
@@ -632,12 +635,17 @@ The teardown check is easy to misread:
 ```c
 	if (ast_channel_audiohooks(chan) && ast_audiohook_write_list_empty(ast_channel_audiohooks(chan))) {
 ```
-— `main/channel.c:4267`, `:5498`
+— `main/channel.c:4269`, `:5502`
 
-`ast_audiohook_write_list_empty()` returns true when all three sub-lists are
-empty (`main/audiohook.c:1099-1105`), i.e. every hook has removed itself. The
-list struct is then freed. So the audiohook *list* is garbage-collected lazily,
-on the next read or write after the last hook departs.
+`ast_audiohook_write_list_empty()` returns true when the list pointer is `NULL`
+*or* all three sub-lists are empty (`main/audiohook.c:1439-1445`), i.e. every
+hook has removed itself. `ast_audiohook_detach_list()`
+(`main/audiohook.c:910-949`) then drains the three lists, frees the four
+translation paths it may be holding, and frees the list struct; the caller
+follows up with `ast_channel_audiohooks_set(chan, NULL)`
+(`main/channel.c:4271-4272`). So the audiohook *list* is garbage-collected
+lazily, on the next read or write after the last hook departs — and it gets
+recreated from scratch if a hook is attached again later.
 
 ---
 
@@ -673,7 +681,7 @@ static int bridge_channel_queue_action_data(struct ast_bridge_channel *bridge_ch
 
 A stack frame with a borrowed payload, handed to a queue function that duplicates
 it — the standard pattern from [03-memory-and-ownership.md](03-memory-and-ownership.md).
-`bridge_channel_write_action_data()` at `:971-982` is identical except it calls
+`bridge_channel_write_action_data()` at `:981-992` is identical except it calls
 `bridge_channel_write_frame()` (immediate, into the bridge) instead of queueing.
 
 The action space has a hard boundary in the middle of it:
@@ -850,7 +858,7 @@ This is the single easiest bug to introduce in the bridging code.
 
 Note the signalling happens on *free*, not on *dispatch*. That is what makes the
 contract "the function will not return until the queued frame is freed"
-(`:917`) rather than "until the action completes" — though in practice the
+(`:927`) rather than "until the action completes" — though in practice the
 dispatch switch is immediately followed by the free, so they coincide.
 
 ### Queueing into a bridge channel
@@ -876,10 +884,10 @@ int ast_bridge_channel_queue_frame(struct ast_bridge_channel *bridge_channel, st
 — `main/bridge_channel.c:1015-1030`
 
 Then the stream mapping check, which silently drops media for unmapped streams
-(`:1022-1037`), then `ast_frdup(fr)` (`:1039`), then — under the bridge channel
+(`:1032-1047`), then `ast_frdup(fr)` (`:1049`), then — under the bridge channel
 lock — two more drop conditions, both of which go through `bridge_frame_free()`
-on the *dup*: the channel is leaving the bridge (`:1045-1050`), or the channel
-does not accept text (`:1052-1058`).
+on the *dup*: the channel is leaving the bridge (`:1055-1060`), or the channel
+does not accept text (`:1062-1068`).
 
 Note that all of these return **0, meaning success**. The caller cannot
 distinguish "queued" from "dropped on the floor". Only an `ast_frdup()` failure
@@ -956,16 +964,19 @@ numbering into the bridge's:
 ```
 — `main/bridge_channel.c:663-683`
 
-It **mutates the caller's frame** — `frame->stream_num` is rewritten in place,
-with `unmapped_stream_num` saved so it can be restored. The two maps,
+It **mutates the caller's frame** — `frame->stream_num` is rewritten in place and
+never put back. `unmapped_stream_num` (`main/bridge_channel.c:664`, or `-1` at
+`:703`) is not a restore: it is applied only to the `ast_frdup()`'d copy pushed
+onto `deferred_queue` (`:712-718`), so a deferred frame re-enters unmapped while
+the caller's frame stays rewritten. The two maps,
 `stream_map.to_bridge` and `stream_map.to_channel`, are the channel↔bridge
 translation in each direction. The outbound side is applied in
-`ast_bridge_channel_queue_frame()` (`:1028-1030`) and again in the write handler
-(`:2443-2456`).
+`ast_bridge_channel_queue_frame()` (`:1038-1040`) and again in the write handler
+(`:2453-2466`).
 
 ### The write handler
 
-`bridge_channel_handle_write()` at `main/bridge_channel.c:2363` is the bridge's
+`bridge_channel_handle_write()` at `main/bridge_channel.c:2373` is the bridge's
 equivalent of `__ast_read()`. It opens with the same balance invariant the
 channel readq has:
 
@@ -1026,7 +1037,7 @@ user is still typing `*8`. If *everything* in the queue is deferred, `fr` is
 `NULL` and the thread `usleep(1)`s rather than spinning; the alert bytes for the
 deferred frames remain unread, so the next poll wakes immediately and re-checks.
 
-Then the dispatch switch (`:2412-2462`):
+Then the dispatch switch (`:2422-2472`):
 
 | Frametype | Handling |
 | --- | --- |
@@ -1038,7 +1049,7 @@ Then the dispatch switch (`:2412-2462`):
 | `TEXT_DATA` | `ast_sendtext_data()` with the `struct ast_msg_data` payload |
 | default | stream-map, then `ast_write_stream(bridge_channel->chan, num, fr)` |
 
-and then, unconditionally, `bridge_frame_free(fr);` (`:2463`).
+and then, unconditionally, `bridge_frame_free(fr);` (`:2473`).
 
 `sendtext_safe()` is worth reading as the canonical handling of the
 "TEXT may not be zero-terminated" hazard from

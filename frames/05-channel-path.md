@@ -16,55 +16,67 @@ A channel exposes a small fixed array of fds. `include/asterisk/channel.h:196-20
 | `AST_MAX_FDS` | 11 | Size of the array |
 | `AST_ALERT_FD` | 10 | The alert pipe — "there is a frame on the readq" |
 | `AST_TIMING_FD` | 9 | Timer events |
-| `AST_GENERATOR_FD` | 7 | Generator wakeups |
+| `AST_GENERATOR_FD` | 7 | **Unused.** Formerly generator wakeups |
 | `AST_JITTERBUFFER_FD` | 6 | Jitterbuffer wakeups |
 
 Indices 0 through 5 belong to the channel driver. The core reserves the high ones.
+`AST_AGENT_FD` (8) and `AST_GENERATOR_FD` (7) are both dead on this branch; commit
+`e200f51ea4` "channel.c: Remove dead AST_GENERATOR_FD code" removed the generator-fd
+branch from `__ast_read()` and relabelled the constant. Note that the comment on
+`AST_JITTERBUFFER_FD` in the header still reads "used by generator" — that is a stale
+comment in the source, not a second generator fd.
 
 `ast_channel_fdno(chan)` records **which fd woke us up**, and `__ast_read()`
 branches on it. `ast_waitfor_nandfds()` sets it; `__ast_read()` resets it to -1
-when done (`main/channel.c:3810`).
+when done (`main/channel.c:3792`).
 
 ## `ast_waitfor` and friends
 
-All four public waiters funnel into one function
-(`main/channel.c:3007`):
+All four public waiters funnel into one function, defined at `main/channel.c:2992`
+and declared at `include/asterisk/channel.h:2050-2051`:
 
 ```c
-struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds, int nfds,
-	int *exception, int *outfd, int *ms);
+struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n,
+	int *fds, int nfds, int *exception, int *outfd, int *ms);
 ```
 
 | Wrapper | Line | Equivalent |
 |---|---|---|
-| `ast_waitfor_n_fd()` | `main/channel.c:3002` | `(NULL, 0, fds, n, exception, &winner, ms)` |
-| `ast_waitfor_n()` | `main/channel.c:3176` | `(c, n, NULL, 0, NULL, NULL, ms)` |
-| `ast_waitfor()` | `main/channel.c:3181` | `(&c, 1, NULL, 0, NULL, NULL, &ms)` |
-| `ast_waitfordigit_full()` | `main/channel.c:3258` | adds a command fd |
+| `ast_waitfor_n_fd()` | `main/channel.c:2984` | `(NULL, 0, fds, n, exception, &winner, ms)` |
+| `ast_waitfor_n()` | `main/channel.c:3161` | `(c, n, NULL, 0, NULL, NULL, ms)` |
+| `ast_waitfor()` | `main/channel.c:3166` | `(&c, 1, NULL, 0, NULL, NULL, &ms)` |
+| `ast_waitfordigit_full()` | `main/channel.c:3244` | adds a command fd |
 
-The contract is: **call `ast_waitfor()` before `ast_read()`**. In a devmode build,
-calling `ast_read()` without it is loud (`main/channel.c:3576-3594`):
+The contract is: **call `ast_waitfor()` before `ast_read()`**. A devmode build
+notices when you don't — but only quietly (`main/channel.c:3582-3586`):
 
 ```c
 		if (ast_channel_fdno(chan) == -1) {
-			ast_log(LOG_ERROR,
+			ast_debug(3,
 				"ast_read() on chan '%s' called with no recorded file descriptor.\n",
 				ast_channel_name(chan));
 		}
 ```
 
-with the comment explaining the stakes: "One of the potential problems is blocking
-on a dead channel."
+This used to be an `ast_log(LOG_ERROR, ...)`. Commit `5963e624e2` "Media over
+Websocket Channel Driver" downgraded it to `ast_debug(3, ...)` because, as the
+comment immediately above it now explains, "certain situations with stasis and ARI
+could give a false indication" — so the check could fire on correct code. The
+practical consequence for anyone writing a channel driver or an application is that
+**on this branch, breaking the contract is silent** unless you are running with
+`core set debug 3` or higher. Do not rely on the core to tell you.
 
 ---
 
 ## `__ast_queue_frame()` — getting onto the readq
 
-`main/channel.c:1028-1156`. Signature:
+`main/channel.c:1041-1169`. Signature:
 
 ```c
-static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, int head, struct ast_frame *after);
+static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, int head, struct ast_frame *after)
 ```
+
+— `main/channel.c:1041`
 
 Public wrappers (`main/channel.c:1171-1179`):
 
@@ -82,11 +94,11 @@ int ast_queue_frame_head(struct ast_channel *chan, struct ast_frame *fin)
 
 The `after` parameter has no public wrapper; it exists so `__ast_read()` can splice
 multi-frame translator output into the *middle* of the queue
-(`main/channel.c:4223`).
+(`main/channel.c:4225`).
 
 ### Step 1 — HANGUP / END_OF_Q collapsing
 
-`main/channel.c:1044-1073`. If the last frame on the queue is a control frame:
+`main/channel.c:1053-1086`. If the last frame on the queue is a control frame:
 
 - `END_OF_Q` and we are queuing a `HANGUP` → destroy the `END_OF_Q` and queue the
   hangup in its place. Note the careful `after = NULL` with its comment:
@@ -98,6 +110,7 @@ multi-frame translator output into the *middle* of the queue
   				 */
   				after = NULL;
   ```
+  — `main/channel.c:1070-1075`
 - `END_OF_Q` (anything else) or `HANGUP` → **queue nothing, return 0 (success)**.
 
 So queuing onto a hung-up channel silently succeeds without queuing. Do not
@@ -105,7 +118,7 @@ interpret a 0 return as "the frame will be delivered."
 
 ### Step 2 — Duplicate everything
 
-`main/channel.c:1076-1091`. Every input frame is `ast_frdup()`'d into a local list.
+`main/channel.c:1088-1104`. Every input frame is `ast_frdup()`'d into a local list.
 **This is the source of the "callers keep ownership" rule.**
 
 On allocation failure it frees the partial list and returns -1 — and note it does
@@ -114,11 +127,13 @@ walking the chain.
 
 ### Step 3 — Queue-overload flush
 
-`main/channel.c:1101-1126`. The thresholds are bare literals:
+`main/channel.c:1106-1139`. The thresholds are bare literals:
 
 ```c
 	if ((queued_frames + new_frames > 128 || queued_voice_frames + new_voice_frames > 96)) {
 ```
+
+— `main/channel.c:1114`
 
 128 total frames or 96 voice frames. When tripped, it logs at `LOG_WARNING`:
 
@@ -144,6 +159,8 @@ then flushes up to 64 droppable frames:
 		}
 ```
 
+— `main/channel.c:1120-1134`
+
 Three things to note:
 
 1. **Only VOICE, VIDEO and NULL are droppable.** Control frames and DTMF survive —
@@ -159,18 +176,22 @@ than the channel's owner is reading — usually a thread that forgot to call
 
 ### Step 4 — Splice
 
-`main/channel.c:1128-1136`. Three cases: after a given frame, at the head, or at
+`main/channel.c:1141-1149`. Three cases: after a given frame, at the head, or at
 the tail.
 
 ### Step 5 — Wake the reader
 
-`main/channel.c:1138-1151`, in priority order:
+`main/channel.c:1151-1164`, in priority order:
 
 ```c
 	if (ast_channel_alert_writable(chan)) {
 		/* Write to the alert pipe for each added frame */
 		while (new_frames--) {
-			if (ast_channel_alert_write(chan)) { ... break; }
+			if (ast_channel_alert_write(chan)) {
+				ast_log(LOG_WARNING, "Unable to write to alert pipe on %s (qlen = %u): %s!\n",
+					ast_channel_name(chan), queued_frames, strerror(errno));
+				break;
+			}
 		}
 	} else if (ast_channel_timingfd(chan) > -1) {
 		ast_timer_enable_continuous(ast_channel_timer(chan));
@@ -182,7 +203,7 @@ the tail.
 1. **Alert pipe** — one byte per frame. The normal case.
 2. **Continuous timer mode** — for channels with a timing fd but no alert pipe.
    `__ast_read()` turns it off again once the queue drains
-   (`main/channel.c:3654-3658`).
+   (`main/channel.c:3647-3651`).
 3. **`SIGURG`** — the last resort, for a channel that is blocking with neither.
    `AST_FLAG_BLOCKING` plus `ast_channel_blocker(chan)` identify the thread.
 
@@ -190,8 +211,8 @@ the tail.
 
 ## `__ast_read()` — the long one
 
-`main/channel.c:3544`. There is a design note right at the top
-(`main/channel.c:3551-3553`):
+`main/channel.c:3541`. There is a design note right at the top
+(`main/channel.c:3548-3550`):
 
 > this function is very long so make sure there is only one return point at the
 > end (there are only two exceptions to this).
@@ -201,7 +222,7 @@ where the channel has already been unlocked.
 
 ### The four public wrappers
 
-`main/channel.c:4276-4294`:
+`main/channel.c:4278-4296`:
 
 | Function | `dropaudio` | `dropnondefault` |
 |---|---|---|
@@ -216,7 +237,7 @@ so legacy single-stream callers never see multistream media.
 
 ### Order of operations
 
-**1. Zombie / hangup check** — `main/channel.c:3556-3574`. The subtlety is that a
+**1. Zombie / hangup check** — `main/channel.c:3553-3571`. The subtlety is that a
 soft hangup does *not* immediately bail; it queues `AST_CONTROL_END_OF_Q` so
 already-queued frames can still be drained:
 
@@ -232,13 +253,15 @@ already-queued frames can still be drained:
 		 */
 ```
 
+— `main/channel.c:3558-3566`
+
 The "only queue the first" is enforced by the collapsing logic in
 `__ast_queue_frame()` described above.
 
-**2. Timing fd** — `main/channel.c:3599-3660`. Two events:
+**2. Timing fd** — `main/channel.c:3592-3653`. Two events:
 
 `AST_TIMING_EVENT_EXPIRED` → ack the timer, then call `timingfunc` **with the
-channel unlocked** (`main/channel.c:3614-3652`), taking an ao2 ref on
+channel unlocked** (`main/channel.c:3607-3645`), taking an ao2 ref on
 `timingdata` first if `AST_FLAG_TIMINGDATA_IS_AO2_OBJ` is set. This is the path
 that produces the "cannot `goto done`" return:
 
@@ -247,20 +270,25 @@ that produces the "cannot `goto done`" return:
 			return &ast_null_frame;
 ```
 
+— `main/channel.c:3644-3645`
+
 If DTMF emulation needs a tick, it re-locks and produces a null frame instead;
 otherwise the timer rate is reset to 0 and one last null frame is emitted.
 
 `AST_TIMING_EVENT_CONTINUOUS` → disable continuous mode once the readq has at most
-one frame (`main/channel.c:3654-3658`).
+one frame (`main/channel.c:3647-3651`).
 
-**3. Generator fd** — `main/channel.c:3662-3672`. Calls `generate(chan, tmp, -1, -1)`
-with `generatordata` temporarily NULLed out so `ast_write()` can get through, and
-returns a null frame.
-
-**4. Jitterbuffer fd** — `main/channel.c:3673-3675`. Just clears
+**3. Jitterbuffer fd** — `main/channel.c:3655-3657`. Just clears
 `AST_FLAG_EXCEPTION`.
 
-**5. Drain one byte from the alert pipe** — `main/channel.c:3677-3682`:
+> There is no generator-fd step on this branch. Older trees had a
+> `ast_channel_fd_isset(chan, AST_GENERATOR_FD)` branch here that called
+> `generate(chan, tmp, -1, -1)` with `generatordata` temporarily NULLed out and
+> returned a null frame. Commit `e200f51ea4` deleted it as dead code. Generators are
+> now driven entirely from the timing fd and from `ast_read_generator_actions()` at
+> the end of the voice case.
+
+**4. Drain one byte from the alert pipe** — `main/channel.c:3659-3664`:
 
 ```c
 	if (ast_channel_internal_alert_read(chan) == AST_ALERT_READ_FATAL) {
@@ -269,14 +297,20 @@ returns a null frame.
 	}
 ```
 
+— `main/channel.c:3661-3664`
+
 One byte per frame, matching the write side exactly.
 
-**6. Readq first** — `main/channel.c:3685-3758`. The queue is preferred over the
+**5. Readq first** — `main/channel.c:3666-3740`. The queue is preferred over the
 driver, and the dequeue is **selective** because DTMF frames may need to stay
 queued:
 
 ```c
 		AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), f, frame_list) {
+			/* We have to be picky about which frame we pull off of the readq because
+			 * there are cases where we want to leave DTMF frames on the queue until
+			 * some later time. */
+
 			if ( (f->frametype == AST_FRAME_DTMF_BEGIN || f->frametype == AST_FRAME_DTMF_END) && skip_dtmf) {
 				skipped_dtmf_frame = 1;
 				continue;
@@ -287,16 +321,18 @@ queued:
 		}
 ```
 
-`should_skip_dtmf()` (`main/channel.c:3504-3520`) returns 1 when
+— `main/channel.c:3671-3683`
+
+`should_skip_dtmf()` (`main/channel.c:3501-3517`) returns 1 when
 `AST_FLAG_DEFER_DTMF` or `AST_FLAG_EMULATE_DTMF` is set, or when less than
 `AST_MIN_DTMF_GAP` (45 ms) has passed since the last digit.
 
 If nothing acceptable was found, the handling differs depending on *why*
-(`main/channel.c:3704-3720`) — it pokes the alert pipe to come back, unless only
+(`main/channel.c:3686-3702`) — it pokes the alert pipe to come back, unless only
 DTMF frames remain, in which case it disables the continuous timer instead.
 
 HANGUP and END_OF_Q from the queue become a NULL return
-(`main/channel.c:3722-3736`), stashing `f->data.uint32` as the cause:
+(`main/channel.c:3704-3718`), stashing `f->data.uint32` as the cause:
 
 ```c
 			case AST_CONTROL_HANGUP:
@@ -309,12 +345,14 @@ HANGUP and END_OF_Q from the queue become a NULL return
 				break;
 ```
 
+— `main/channel.c:3708-3715`
+
 Note the `/* XXX why not the same for frames from the channel ? */` at
-`main/channel.c:3723` — frames coming directly from `tech->read` are *not*
+`main/channel.c:3705` — frames coming directly from `tech->read` are *not*
 subjected to this check.
 
 Stream resolution for VOICE/VIDEO happens here too, and a frame whose media type
-has no negotiated stream is **dropped** (`main/channel.c:3746-3756`):
+has no negotiated stream is **dropped** (`main/channel.c:3728-3738`):
 
 > In order to allow media to be passed up the underlying media type has to have a
 > format negotiated on the channel itself. In cases where this hasn't happened the
@@ -322,28 +360,42 @@ has no negotiated stream is **dropped** (`main/channel.c:3746-3756`):
 > negotiated. If this occurs just drop the frame as we have no stream that it came
 > from.
 
-**7. Otherwise ask the driver** — `main/channel.c:3759-3798`, in order:
+**6. Otherwise ask the driver** — `main/channel.c:3741-3779`, in order:
 
 ```c
 		if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_EXCEPTION)) {
 			if (ast_channel_tech(chan)->exception)
 				f = ast_channel_tech(chan)->exception(chan);
-			...
+			else {
+				ast_log(LOG_WARNING, "Exception flag set on '%s', but no exception handler\n", ast_channel_name(chan));
+				f = &ast_null_frame;
+			}
+			/* Clear the exception flag */
+			ast_clear_flag(ast_channel_flags(chan), AST_FLAG_EXCEPTION);
 		} else if (ast_channel_tech(chan) && ast_channel_tech(chan)->read_stream) {
 			f = ast_channel_tech(chan)->read_stream(chan);
-			...
+
+			/* This channel driver supports multistream so the stream_num on the frame is valid, the only
+			 * thing different is that we need to find the default stream so we know whether to invoke the
+			 * default stream logic or not (such as transcoding).
+			 */
+			if (f && (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_VIDEO)) {
+				stream = ast_stream_topology_get_stream(ast_channel_get_stream_topology(chan), f->stream_num);
+				default_stream = ast_channel_get_default_stream(chan, ast_format_get_type(f->subclass.format));
+			}
 		} else if (ast_channel_tech(chan) && ast_channel_tech(chan)->read) {
-			f = ast_channel_tech(chan)->read(chan);
 ```
 
+— `main/channel.c:3742-3762`
+
 `read_stream` wins over `read` when both exist. A driver with neither gets a
-`LOG_WARNING`.
+`LOG_WARNING` (`main/channel.c:3778-3779`).
 
 **The frame the driver returns is the driver's.** Typically `mallocd == 0`,
 pointing into a per-instance buffer that will be overwritten on the next read.
 That is the whole reason `ast_frisolate()` exists.
 
-**8. Framehook READ event** — `main/channel.c:3782-3786`, only for the default
+**7. Framehook READ event** — `main/channel.c:3782-3786`, only for the default
 stream:
 
 ```c
@@ -354,9 +406,9 @@ stream:
 	}
 ```
 
-**9. Reset `fdno`** — `main/channel.c:3806-3810`.
+**8. Reset `fdno`** — `main/channel.c:3788-3792`.
 
-**10. Spill excess driver frames** — `main/channel.c:3818-3825`:
+**9. Spill excess driver frames** — `main/channel.c:3800-3807`:
 
 ```c
 		if (AST_LIST_NEXT(f, frame_list)) {
@@ -366,24 +418,26 @@ stream:
 		}
 ```
 
+— `main/channel.c:3803-3807`
+
 Queue (which copies), then free the originals, then unlink. A clean illustration
 of the frdup-on-queue convention.
 
-**11. `dropnondefault` absorption** — `main/channel.c:3827-3833`.
+**10. `dropnondefault` absorption** — `main/channel.c:3809-3815`.
 
-**12. The big frametype switch** — `main/channel.c:3835-4245`.
+**11. The big frametype switch** — `main/channel.c:3817-4247`.
 
-**13. Debug dump** — `main/channel.c:4258-4261`:
+**12. Debug dump** — `main/channel.c:4260-4262`:
 
 ```c
-	if (ast_channel_fin(chan) & DEBUGCHAN_FLAG) {
+	/* High bit prints debugging */
+	if (ast_channel_fin(chan) & DEBUGCHAN_FLAG)
 		ast_frame_dump(ast_channel_name(chan), f, "<<");
-	}
 ```
 
 ### The control-frame case
 
-`main/channel.c:3835-3902`. Highlights:
+`main/channel.c:3818-3884`. Highlights:
 
 - `AST_CONTROL_ANSWER` — deduplicated against the current channel state, sets the
   answer time via `set_channel_answer_time()` and calls `ast_setstate()`. If the
@@ -398,18 +452,18 @@ of the frdup-on-queue convention.
 
 ### The voice case, in order
 
-`main/channel.c:4073-4234`. This is the single most consequential block in the
+`main/channel.c:4075-4236`. This is the single most consequential block in the
 file.
 
-1. **Non-default stream short-circuit** (`:4074-4077`) — "let it just go through",
+1. **Non-default stream short-circuit** (`:4076-4079`) — "let it just go through",
    no processing at all.
-2. **Clear stale DTMF emulation** (`:4079-4086`).
-3. **`dropaudio` or mid-digit** (`:4088-4093`) → frame becomes null.
-4. **DTMF emulation interception** (`:4095-4118`) — either synthesizes the DTMF
+2. **Clear stale DTMF emulation** (`:4081-4088`).
+3. **`dropaudio` or mid-digit** (`:4090-4095`) → frame becomes null.
+4. **DTMF emulation interception** (`:4097-4120`) — either synthesizes the DTMF
    END frame or drops the voice frame to keep the digit clean. Detail below.
-5. **Format adaptation** (`:4122-4169`). If the frame matches neither
+5. **Format adaptation** (`:4124-4171`). If the frame matches neither
    `rawreadformat` nor `readformat`, rebuild the read translation path. The
-   `core_format` choice is the interesting part (`:4159-4163`):
+   `core_format` choice is the interesting part (`main/channel.c:4161-4170`):
    ```c
    				core_format = ast_channel_readformat(chan);
    				if (!ast_format_cache_is_slinear(core_format)) {
@@ -427,37 +481,38 @@ file.
    otherwise the core does not care and we pass the frame through untranslated so
    the bridge technology can sort out compatibility. It also warns that
    `transcode_via_slin` (on by default) and `genericplc` force slin anyway.
-6. **Audiohooks, first chance** (`:4170-4184`) — only if the frame is *already*
+6. **Audiohooks, first chance** (`:4172-4186`) — only if the frame is *already*
    slinear, setting `hooked = 1`:
    > Send frame to audiohooks if present, if frametype is linear, to preserve
    > functional compatibility with previous behavior. If not linear, hold off until
    > transcoding is done where we are more likely to have a linear frame
-7. **Translate** (`:4186-4192`) — **with `consume = 1`**:
+7. **Translate** (`:4188-4194`) — **with `consume = 1`**
+   (`main/channel.c:4190-4193`):
    ```c
-   			f = ast_translate(ast_channel_readtrans(chan), f, 1);
-   			if (!f) {
-   				f = &ast_null_frame;
-   			}
+   				f = ast_translate(ast_channel_readtrans(chan), f, 1);
+   				if (!f) {
+   					f = &ast_null_frame;
+   				}
    ```
    `ast_translate()` frees the input. Note it only runs when the frame matches
    `rawreadformat`.
-8. **Audiohooks, second chance** (`:4194-4202`) — only if not already hooked.
+8. **Audiohooks, second chance** (`:4196-4204`) — only if not already hooked.
    "also the last chance".
-9. **Requeue multi-frame translator output** (`:4204-4227`) — marks every extra
+9. **Requeue multi-frame translator output** (`:4206-4229`) — marks every extra
    frame `AST_FRFLAG_REQUEUED` and splices them in *before* anything queued
-   earlier in this call:
+   earlier in this call (`main/channel.c:4222-4228`):
    ```c
-   			if (!readq_tail) {
-   				ast_queue_frame_head(chan, multi_frame);
-   			} else {
-   				__ast_queue_frame(chan, multi_frame, 0, readq_tail);
-   			}
-   			ast_frfree(multi_frame);
-   			AST_LIST_NEXT(f, frame_list) = NULL;
+   				if (!readq_tail) {
+   					ast_queue_frame_head(chan, multi_frame);
+   				} else {
+   					__ast_queue_frame(chan, multi_frame, 0, readq_tail);
+   				}
+   				ast_frfree(multi_frame);
+   				AST_LIST_NEXT(f, frame_list) = NULL;
    ```
-   `readq_tail` was captured at `main/channel.c:3813`, before any of this call's
+   `readq_tail` was captured at `main/channel.c:3795`, before any of this call's
    own queuing — which is exactly what makes the ordering correct.
-10. **Generator actions** (`:4229-4233`) — `ast_read_generator_actions(chan, f)`,
+10. **Generator actions** (`:4231-4235`) — `ast_read_generator_actions(chan, f)`,
     for when there is no timing device and outgoing frames must be generated in
     step with incoming ones.
 
@@ -500,10 +555,10 @@ manufactures the missing halves.
 
 | Constant | Value | Location | Role |
 |---|---|---|---|
-| `AST_DEFAULT_EMULATE_DTMF_DURATION` | 100 | `main/channel.c:102` | Duration used when an END arrives with `len == 0` |
-| `DEFAULT_EMULATE_MF_DURATION` | 55 | `main/channel.c:106` | MF equivalent |
-| `AST_MIN_DTMF_GAP` | 45 | `main/channel.c:112` | Minimum inter-digit gap in ms |
-| `option_dtmfminduration` | `AST_MIN_DTMF_DURATION` | `main/options.c:83` | Configurable minimum digit duration; shown in CLI as "Min DTMF duration" (`main/asterisk.c:559`) |
+| `AST_DEFAULT_EMULATE_DTMF_DURATION` | 100 | `main/channel.c:106` | Duration used when an END arrives with `len == 0` |
+| `DEFAULT_EMULATE_MF_DURATION` | 55 | `main/channel.c:110` | MF equivalent |
+| `AST_MIN_DTMF_GAP` | 45 | `main/channel.c:116` | Minimum inter-digit gap in ms |
+| `option_dtmfminduration` | `AST_MIN_DTMF_DURATION` | `main/options.c:84` | Configurable minimum digit duration; shown in CLI as "Min DTMF duration" (`main/asterisk.c:565`) |
 
 ### The scratch frame
 
@@ -535,7 +590,7 @@ overwrite the queued one.
 
 ### DTMF_BEGIN handling
 
-`main/channel.c:4017-4032`. A BEGIN is **ignored** (replaced with a null frame) if
+`main/channel.c:4014-4029`. A BEGIN is **ignored** (replaced with a null frame) if
 DTMF is deferred, END-only, already emulating, or the inter-digit gap has not
 elapsed:
 
@@ -554,21 +609,25 @@ elapsed:
 			}
 ```
 
+— `main/channel.c:4017-4028`
+
 ### DTMF_END handling
 
-`main/channel.c:3903-4016`. Three branches.
+`main/channel.c:3885-4013`. Three branches.
 
-**(a) Deferred or already emulating** (`:3906-3910`) — requeue it and return null:
+**(a) Deferred or already emulating** — requeue it and return null:
 
 ```c
+			/* Queue it up if DTMF is deferred, or if DTMF emulation is forced. */
 			if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_DTMF) || ast_test_flag(ast_channel_flags(chan), AST_FLAG_EMULATE_DTMF)) {
 				queue_dtmf_readq(chan, f);
 				ast_frfree(f);
 				f = &ast_null_frame;
-			}
 ```
 
-**(b) No BEGIN was seen, and this channel is not END-only** (`:3911-3952`) — the
+— `main/channel.c:3888-3892`
+
+**(b) No BEGIN was seen, and this channel is not END-only** (`:3900-3930`) — the
 core **turns the END into a BEGIN** and promises to send the END later:
 
 ```c
@@ -588,8 +647,10 @@ core **turns the END into a BEGIN** and promises to send the END later:
 						ast_channel_emulate_dtmf_duration_set(chan, AST_DEFAULT_EMULATE_DTMF_DURATION);
 ```
 
+— `main/channel.c:3900-3913`
+
 and then starts a **50 fps timer** so null frames arrive to drive the state
-machine even if no voice is flowing (`:3934-3942`):
+machine even if no voice is flowing:
 
 ```c
 					/*
@@ -599,34 +660,47 @@ machine even if no voice is flowing (`:3934-3942`):
 					 * timer events to generate null frames.
 					 */
 					if (!ast_channel_generator(chan)) {
-						ast_timer_set_rate(ast_channel_timer(chan), 50);
+						struct ast_timer *timer = ast_channel_timer(chan);
+						if (timer) {
+							ast_timer_set_rate(timer, 50);
+					    } else {
+							ast_log(LOG_WARNING, "No timing module loaded, DTMF length may be inaccurate\n");
+						}
 					}
 ```
 
-That block appears **four times** in this region (`:3940`, `:3990`, `:4005`,
-`:4067`) — every state transition that owes a future END frame arms the timer.
+— `main/channel.c:3916-3929`
+
+The NULL check on the timer is newer than the rest. Commit `7b8339fb52` "channel:
+Prevent crash during DTMF emulation when no timing module is loaded" added it —
+before that the code called `ast_timer_set_rate(ast_channel_timer(chan), 50)`
+unconditionally and crashed on a channel with no timing module. The fallback is a
+`LOG_WARNING` and inaccurate digit lengths, not a failure.
+
+That block appears **four times** in this region (`:3922`, `:3977`, `:3997`,
+`:4064`) — every state transition that owes a future END frame arms the timer.
 
 If the gap since the last digit is too short, the digit is deferred instead
-(`:3912-3917`).
+(`:3894-3899`).
 
-**(c) A BEGIN was seen, or the channel is END-only** (`:3953-4015`). Computes the
+**(c) A BEGIN was seen, or the channel is END-only** (`:3940-4012`). Computes the
 real duration, and if it is below `option_dtmfminduration`, records the *actual*
-wire duration so emulation triggers (`:3961-3972`):
+wire duration so emulation triggers (`:3948-3955`):
 
 > detect tones that were received on the wire with durations shorter than
 > option_dtmfminduration and set f->len to the actual duration of the DTMF frames
 > on the wire. This will cause dtmf emulation to be triggered later on.
 
 Then either swallows the frame and emulates the remaining duration
-(`:3977-3992`), or passes it through with `len` clamped up to the minimum
-(`:3993-4008`).
+(`:3964-3984`), or passes it through with `len` clamped up to the minimum
+(`:3985-4005`).
 
 ### Where the emulated END actually gets produced
 
 Two places, both using the scratch frame.
 
-**From a null frame** (`main/channel.c:4033-4072`) — this is what the 50 fps timer
-feeds:
+**From a null frame** (`main/channel.c:4030-4074`) — this is what the 50 fps timer
+feeds (`main/channel.c:4040-4046`):
 
 ```c
 				} else if (ast_tvdiff_ms(now, *ast_channel_dtmf_tv(chan)) >= ast_channel_emulate_dtmf_duration(chan)) {
@@ -638,8 +712,9 @@ feeds:
 					f->len = ast_tvdiff_ms(now, *ast_channel_dtmf_tv(chan));
 ```
 
-**From a voice frame** (`main/channel.c:4095-4118`) — same logic, and if the
-duration has *not* elapsed the voice frame is dropped to keep the digit clean:
+**From a voice frame** (`main/channel.c:4097-4120`) — same logic, and if the
+duration has *not* elapsed the voice frame is dropped to keep the digit clean
+(`main/channel.c:4114-4118`):
 
 ```c
 				} else {
@@ -651,7 +726,7 @@ duration has *not* elapsed the voice frame is dropped to keep the digit clean:
 
 ### Why `AST_FLAG_EMULATE_DTMF` is cleared late
 
-The same comment appears at `main/channel.c:4034-4037` and `:4079-4082`:
+The same comment appears at `main/channel.c:4031-4034` and `:4081-4084`:
 
 > The EMULATE_DTMF flag must be cleared here as opposed to when the duration is
 > reached, because we want to make sure we pass at least one voice frame through
@@ -663,8 +738,8 @@ running together.
 ### DTMF and audiohooks
 
 Every DTMF branch runs the read-direction audiohook list afterwards, with the
-same free-the-old-frame pattern (`main/channel.c:3944-3952`, `:4009-4014`,
-`:4054-4060`, `:4105-4110`):
+same free-the-old-frame pattern (`main/channel.c:3931-3939`, `:4006-4011`,
+`:4051-4057`, `:4107-4112`):
 
 ```c
 				if (ast_channel_audiohooks(chan)) {
@@ -675,7 +750,9 @@ same free-the-old-frame pattern (`main/channel.c:3944-3952`, `:4009-4014`,
 				}
 ```
 
-There is a known defect flagged at `main/channel.c:3946-3948`:
+— `main/channel.c:4006-4011`
+
+There is a known defect flagged at `main/channel.c:3933-3935`:
 
 > `\todo` XXX It is possible to write a digit to the audiohook twice if the digit
 > was originally read while the channel was in autoservice.
@@ -684,8 +761,8 @@ There is a known defect flagged at `main/channel.c:3946-3948`:
 
 ## `ast_write_stream()` — the write path
 
-`main/channel.c:5168`. `ast_write()` is just
-`ast_write_stream(chan, -1, fr)` (`main/channel.c:5163-5166`).
+`main/channel.c:5172`. `ast_write()` is just
+`ast_write_stream(chan, -1, fr)` (`main/channel.c:5167-5170`).
 
 ### The two frame pointers
 
@@ -714,25 +791,26 @@ The invariant is enforced once, at the end (`main/channel.c:5492-5493`):
 	}
 ```
 
-**It returns 0 — success — after giving up.** Ten trylocks with a 1 µs sleep
-between them, then the frame is silently dropped and the caller is told everything
-is fine. If you are debugging mysteriously missing audio under load, this is a
+**It returns 0 — success — after giving up.** `count` is post-incremented, so
+`count++ > 10` first holds on the twelfth failed trylock: eleven 1 µs sleeps, then
+the frame is silently dropped and the caller is told everything is fine. If you are debugging mysteriously missing audio under load, this is a
 place to look; `core set debug 1` will show the message.
 
 ### Step 2 — Stream resolution
 
-`main/channel.c:5191-5213`. An explicit `stream_num` is honoured unconditionally
-(`:5191-5197`):
+`main/channel.c:5195-5217`. An explicit `stream_num` is honoured unconditionally
+(`:5196-5198`):
 
 > If we were told to write to an explicit stream then allow this frame through, no
 > matter if the type is expected or not (a framehook could change)
 
 Otherwise VOICE/VIDEO/MODEM get the default stream for their media type, with
-MODEM mapped to `AST_MEDIA_TYPE_IMAGE` (`main/channel.c:5207-5209`).
+MODEM mapped to `AST_MEDIA_TYPE_IMAGE` (`main/channel.c:5211-5212`).
 
 ### Step 3 — Framehook WRITE event
 
-`main/channel.c:5215-5220`:
+`main/channel.c:5219-5224`
+(`main/channel.c:5221-5224`):
 
 ```c
 	if ((stream == default_stream) && !(fr = ast_framehook_list_write_event(ast_channel_framehooks(chan), fr))) {
@@ -748,7 +826,7 @@ success.
 
 ### Step 4 — Generator interception
 
-`main/channel.c:5222-5246`. If a generator is running, it owns the channel's
+`main/channel.c:5226-5250`. If a generator is running, it owns the channel's
 output and almost everything is discarded:
 
 ```c
@@ -765,7 +843,13 @@ output and almost everything is discarded:
 				ast_channel_lock(chan);
 			} else if (fr->frametype == AST_FRAME_CONTROL
 				&& fr->subclass.integer == AST_CONTROL_UNHOLD) {
-				...
+				/*
+				 * This is a side case where Echo is basically being called
+				 * and the person put themselves on hold and took themselves
+				 * off hold.
+				 */
+				indicate_data_internal(chan, fr->subclass.integer, fr->data.ptr,
+					fr->datalen);
 			}
 			res = 0;	/* XXX explain, why 0 ? */
 			goto done;
@@ -793,21 +877,21 @@ wrong — but nobody has written that down.
 
 ### Step 6 — The frametype switch
 
-`main/channel.c:5250-5486`.
+`main/channel.c:5254-5490`.
 
 | Frametype | Handling | Line |
 |---|---|---|
-| `CONTROL` | `indicate_data_internal()`, `res = 0` | `:5251-5254` |
-| `DTMF_BEGIN` | audiohooks, then `ast_senddigit_begin()` unlocked | `:5255-5266` |
-| `DTMF_END` | audiohooks, then `ast_senddigit_end()` unlocked | `:5267-5280` |
-| `TEXT` | `write_text` if T.140, else `send_text` | `:5281-5291` |
-| `HTML` | `tech->send_html` | `:5292-5297` |
-| `VIDEO` | `write_stream`, else `write_video` | `:5298-5313` |
-| `MODEM` | `tech_write()` | `:5314-5318` |
-| `VOICE` | the long path below | `:5319-5462` |
-| `NULL`, `IAX` | ignored, `res = 0` | `:5463-5467` |
-| `RTCP` | `tech->write_stream` only, else `res = 0` | `:5468-5477` |
-| *default* | writes **the original `fr`** | `:5478-5485` |
+| `CONTROL` | `indicate_data_internal()`, `res = 0` | `:5255-5258` |
+| `DTMF_BEGIN` | audiohooks, then `ast_senddigit_begin()` unlocked | `:5259-5270` |
+| `DTMF_END` | audiohooks, then `ast_senddigit_end()` unlocked | `:5271-5284` |
+| `TEXT` | `write_text` if T.140, else `send_text` | `:5285-5295` |
+| `HTML` | `tech->send_html` | `:5296-5301` |
+| `VIDEO` | `write_stream`, else `write_video` | `:5302-5317` |
+| `MODEM` | `tech_write()` | `:5318-5322` |
+| `VOICE` | the long path below | `:5323-5466` |
+| `NULL`, `IAX` | ignored, `res = 0` | `:5467-5471` |
+| `RTCP` | `tech->write_stream` only, else `res = 0` | `:5472-5481` |
+| *default* | writes **the original `fr`** | `:5482-5489` |
 
 Control frames do **not** go to `tech->write`; they go through
 `indicate_data_internal()`, i.e. the same path as `ast_indicate_data()`. See
@@ -830,16 +914,16 @@ that can reach `ast_write()` needs an explicit case.
 
 ### The voice write path in order
 
-`main/channel.c:5319-5462`:
+`main/channel.c:5323-5466`:
 
-1. **Generic PLC** (`:5320-5322`) — `apply_plc(chan, fr)` when
+1. **Generic PLC** (`:5324-5326`) — `apply_plc(chan, fr)` when
    `ast_opt_generic_plc` and the frame is exactly `slin`. **This mutates the
    caller's frame in place.**
-2. `f = fr;` (`:5324`).
-3. **Audiohooks if already slinear** (`:5326-5335`), setting `hooked = 1`.
-4. **Format adaptation and translation** (`:5337-5376`). If the frame is not in
+2. `f = fr;` (`:5328`).
+3. **Audiohooks if already slinear** (`:5330-5339`), setting `hooked = 1`.
+4. **Format adaptation and translation** (`:5341-5380`). If the frame is not in
    `rawwriteformat`, call `ast_set_write_format()` — and on failure, `break`,
-   which induces a hangup (the comment at `:5342-5352` spells out why: "The best
+   which induces a hangup (the comment at `:5346-5357` spells out why: "The best
    we can do is request the call to hangup since we could not make it
    compatible"). Then translate with **`consume = 0`**:
    ```c
@@ -855,25 +939,30 @@ that can reach `ast_write()` needs an explicit case.
    				f = trans_frame;
    			}
    ```
+   — `main/channel.c:5369-5379`
+
    **The asymmetry with the read path is deliberate.** Read passes `consume = 1`
    because the frame came from the driver and the core owns it. Write passes
    `consume = 0` because the frame belongs to the caller.
-5. **Audiohooks, second chance** (`:5383-5426`) — the most intricate block in the
+5. **Audiohooks, second chance** (`:5387-5430`) — the most intricate block in the
    function, because it has to rebuild a *list* of frames while hooks replace
-   individual members. The `ast_frisolate()` at `:5404` has its own
+   individual members. The `ast_frisolate()` at `:5408` has its own
    justification:
    > doing an ast_frisolate here seems silly, but we are not guaranteed the
    > new_frame isn't part of local storage, meaning if ast_audiohook_write is
    > called multiple times it may override the previous frame we got from it
    > unless we dup it
 
-   And `freeoldlist` is set only when `f != fr` (`:5387-5389`) — i.e. only free
+   And `freeoldlist` is set only when `f != fr` (`:5391-5393`) — i.e. only free
    frames we created, never the caller's.
-6. **Write, possibly multiple frames** (`:5428-5461`):
+6. **Write, possibly multiple frames** (`main/channel.c:5435-5465`):
    ```c
    		CHECK_BLOCKING(chan);
    		if ((f != fr) && AST_LIST_NEXT(f, frame_list)) {
-   			...
+   			struct ast_frame *cur, *next = NULL;
+   			unsigned int skip = 0;
+
+   			cur = f;
    			while (cur) {
    				next = AST_LIST_NEXT(cur, frame_list);
    				AST_LIST_NEXT(cur, frame_list) = NULL;
@@ -883,6 +972,9 @@ that can reach `ast_write()` needs an explicit case.
    						ast_channel_softhangup_internal_flag_add(chan, AST_SOFTHANGUP_DEV);
    						skip = 1;
    					} else if (next) {
+   						/* don't do this for the last frame in the list,
+   						   as the code outside the loop will do it once
+   						*/
    						ast_channel_fout_set(chan, FRAMECOUNT_INC(ast_channel_fout(chan)));
    					}
    				}
@@ -904,7 +996,7 @@ that can reach `ast_write()` needs an explicit case.
 
 ### `tech_write()`
 
-Defined just above `ast_write()`:
+Defined just above `ast_write()` (`main/channel.c:5155-5165`):
 
 ```c
 static int tech_write(struct ast_channel *chan, struct ast_stream *stream,
