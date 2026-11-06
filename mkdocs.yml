@@ -89,6 +89,7 @@ nav:
   - Threading:
       - Overview: threading/README.md
       - 1. The wrapper layer: threading/01-the-wrapper-layer.md
+      - 2. Mutexes: threading/02-mutexes.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md

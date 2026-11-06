@@ -16,7 +16,7 @@ what `DEADLOCK_AVOIDANCE` actually does to your lock.
 
 The lock wrappers are not optional and not avoidable. Counting call sites in
 `.c` files and excluding `third-party/` and the standalone `utils/extconf.c`,
-there are 850 `ast_mutex_lock` sites, 1,267 `ast_mutex_unlock`, 16
+there are 852 `ast_mutex_lock` sites, 1,269 `ast_mutex_unlock`, 16
 `ast_mutex_trylock`, 170 rwlock acquisitions and 151 condition waits, spread
 across 152 files; a further 31 headers name the lock types or operations without
 calling one. There are 75 `AST_MUTEX_DEFINE_STATIC` and 15
@@ -88,7 +88,7 @@ Four of those five arguments exist only so that the lock can say where it was
 taken. That is the whole reason `core show locks` can print a file, a line, a
 function and the *source text* of the lock expression for every lock every
 thread is holding — the preprocessor already knew all four at every one of the
-850 call sites, so nothing has to be looked up at runtime.
+852 call sites, so nothing has to be looked up at runtime.
 
 Three consequences carry most of the weight:
 
@@ -150,7 +150,7 @@ unconditional; the consumer is not. Chapter 05.
 | File | Covers | Status |
 |---|---|---|
 | [01-the-wrapper-layer.md](01-the-wrapper-layer.md) | the macro-to-function indirection and the four captured arguments, `ast_mutex_t`/`ast_rwlock_t` as structs, the renamed-field ABI device and `DEBUG_THREADS_LOOSE_ABI`, why Asterisk requires recursive mutexes, static initializers, `AST_MUTEX_DEFINE_STATIC` and the `AST_MUTEX_INIT_W_CONSTRUCTORS` variant | planned |
-| `02-mutexes.md` | `__ast_pthread_mutex_init` through `__ast_pthread_mutex_unlock` line by line, lazy tracking setup, the reentrancy stack, what the error paths log and when they crash | planned |
+| [02-mutexes.md](02-mutexes.md) | `__ast_pthread_mutex_init` through `__ast_pthread_mutex_unlock` statement by statement, `log_mutex_error` and the `logger.c` exception, lazy tracking setup and the global `reentrancy_lock`, the reentrancy stack, `DETECT_DEADLOCKS`, and a table of every mutex error message | written |
 | `03-read-write-locks.md` | the nine rwlock entry points, `ROFFSET`, how read and write acquisitions are tracked differently, the timed and try variants | planned |
 | `04-condition-variables.md` | `ast_cond_t` as a bare typedef, `__ast_cond_wait` and `__ast_cond_timedwait`, `restore_lock_tracking` and why the wait has to unwind and rebuild the tracking stack | planned |
 | `05-lock-tracking-and-introspection.md` | `ast_lock_track` versus `thr_lock_info`, `ast_store_lock_info`/`ast_mark_lock_acquired`/`ast_remove_lock_info`, `core show locks` end to end, `DETECT_DEADLOCKS`, `THREAD_CRASH` | planned |
@@ -173,8 +173,8 @@ unconditional; the consumer is not. Chapter 05.
 Read [01-the-wrapper-layer.md](01-the-wrapper-layer.md) first and do not skip
 it — the macro indirection and the `DEBUG_THREADS` rename are the two facts
 that make the rest of the subsystem legible, and both are invisible from the
-call site. Then chapter 02, which is the only chapter whose content you are
-likely to need while reading a backtrace.
+call site. Then [02-mutexes.md](02-mutexes.md), which is the only chapter whose content
+you are likely to need while reading a backtrace.
 
 Chapters 05 and 06 are the practical pair: the first tells you how to see what
 is held, the second tells you what the tree does about it. Read them together

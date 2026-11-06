@@ -57,7 +57,7 @@ the lock the way you wrote it rather than by address, and why the two
 
 All four descriptor arguments are compile-time constants, which is what makes
 this affordable. There is no runtime lookup, no symbol table walk, no registry;
-the preprocessor already knew the answer at each of the 850 `ast_mutex_lock`
+the preprocessor already knew the answer at each of the 852 `ast_mutex_lock`
 sites in the tree.
 
 The consequence worth internalising early is that **`ast_mutex_lock` has no
@@ -330,10 +330,12 @@ implementation uses to index the top of the stack:
 — `include/asterisk/lock.h:249`
 
 Note what `ROFFSET` does when `reentrancy` is 0: it yields 0, the same index as
-a depth of 1. Reading the top of the stack on an unheld lock gives you the
-stale entry from the last holder rather than an error, which is correct for
-error messages — the most recent holder is exactly what you want to print — but
-is not a way to ask whether a lock is held.
+a depth of 1. Reading the top of the stack on an unheld lock is therefore not
+an error and not a sentinel — it silently reads slot 0. Since the unlock path
+clears the slot it pops (chapter 02, §2.8), what you actually get back is
+`NULL` and `0`. That is why every caller tests `lt->reentrancy` before using
+`ROFFSET`: the macro cannot tell you whether the lock is held, and the slot it
+returns is only meaningful if you already know that it is.
 
 This is a separate allocation rather than a set of fields inside
 `ast_mutex_info` for two reasons, and both are about cost. It is big: with
@@ -441,7 +443,7 @@ stack, not the lock, and the push that respects it is inside
 `#ifdef DEBUG_THREADS` (`main/lock.c:361-392`) — so in a stock build nothing
 counts toward it, and in a debug build exceeding it is not quiet either:
 the acquisition still succeeds, and the tenth re-entry simply logs
-`'%s' really deep reentrancy!` (`main/lock.c:370`) and goes unrecorded.
+`'%s' really deep reentrancy!` (`main/lock.c:371`) and goes unrecorded.
 
 The comment's parenthesis — "not error checking" — rules out the alternative
 explicitly. `PTHREAD_MUTEX_ERRORCHECK` would turn the double lock into an
@@ -640,6 +642,7 @@ invisible in exactly the situation you would want to see it.
 
 ## Next
 
-Chapter 02 will follow `__ast_pthread_mutex_lock` from the macro
+[02-mutexes.md](02-mutexes.md) — `__ast_pthread_mutex_lock` from the macro
 expansion to the `pthread_mutex_lock` call and back, including the lazy
-tracking setup, the reentrancy stack and the paths that log rather than return.
+tracking setup, the reentrancy stack and the paths that log rather than
+return.
