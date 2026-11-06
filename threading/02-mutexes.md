@@ -846,5 +846,7 @@ machinery itself is broken and cannot be trusted to log.
 
 ## Next
 
-Chapter 03 will cover the nine read-write lock entry points, how read and write
-acquisitions are tracked differently, and the timed and try variants.
+[Chapter 03](03-read-write-locks.md) covers the nine read-write lock entry
+points: how much of this chapter they reuse verbatim, why the reentrancy array
+stops being a stack, and which of the diagnostics above have no rwlock
+counterpart.
