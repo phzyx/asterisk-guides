@@ -53,21 +53,45 @@ proxies and global objects, and debugging. All 217 quoted blocks verify
 whitespace-exact against the `24` tree, the two exceptions being deliberate
 anti-patterns.
 
-### 3. Threading, locking and deadlock avoidance
+### 3. Threading, locking and deadlock avoidance — *in progress* ([threading/](threading/README.md))
 
 | | |
 |---|---|
-| Core source | `main/lock.c` (1,335), `include/asterisk/lock.h` (782), `main/taskprocessor.c` (1,646), `main/threadpool.c` (1,350), `main/sched.c` (868), `main/autoservice.c` (391) |
+| Core source | `include/asterisk/lock.h` (782), `main/lock.c` (1,335), the lock-tracking and `ast_pthread_create*` halves of `main/utils.c` (3,330) |
 | Size | Medium |
 
-Placed before bridging on purpose: bridging is where the thread model bites. 185
-files use the lock wrappers, 136 sites call `ast_pthread_create*`, and
-`DEADLOCK_AVOIDANCE` appears at 41 sites — the macro has two definitions
-(`lock.h:383`, and `:486` under `DEBUG_THREADS`) and deserves its own section.
-Covers the thread inventory (PBX thread, bridge thread, driver threads,
-serializers), lock ordering between channel, bridge and ao2 locks,
-`DEBUG_THREADS` tracking and `core show locks`, taskprocessors vs serializers vs
-the threadpool, and taskprocessor overload.
+Placed before bridging on purpose: bridging is where the thread model bites.
+Counting `.c` and `.h` files but excluding `third-party/` and the standalone
+`utils/extconf.c`, 183 files call into the lock wrappers, with 850
+`ast_mutex_lock` sites, 1,267 `ast_mutex_unlock`, 170 rwlock acquisitions and
+151 condition waits; 130 sites call one of the four `ast_pthread_create*`
+macros; and `DEADLOCK_AVOIDANCE` appears at 27 call sites. Almost every macro in
+`lock.h` has two definitions — `DEADLOCK_AVOIDANCE` at `:383` under
+`DEBUG_THREADS` and at `:486` without it — which is a section on its own.
+
+Scope deliberately narrowed to the lock layer: the wrapper indirection,
+mutexes, rwlocks, condition variables, lock tracking and `core show locks`,
+deadlock avoidance and lock ordering, thread creation, and atomics. It sits
+underneath [channels/03](channels/03-references-and-locking.md) and
+[ao2/03](ao2/03-locking.md) rather than restating them.
+
+Shipped so far: an overview and chapter 01 (the wrapper layer). All 17 quoted
+blocks in chapter 01 verify whitespace-exact against the cited lines.
+
+### 3a. Task execution — taskprocessors, threadpools, the scheduler and autoservice
+
+| | |
+|---|---|
+| Core source | `main/taskprocessor.c` (1,646), `main/threadpool.c` (1,350), `main/sched.c` (868), `main/autoservice.c` (391) |
+| Size | Medium |
+| Needs | Guide 3 |
+
+Split out of guide 3, which was overloaded. Covers the thread inventory (PBX
+thread, bridge thread, driver threads, serializers), taskprocessors versus
+serializers versus the threadpool, taskprocessor overload and the subsystem
+alert thresholds, the scheduler's id recycling and the
+`ast_sched_del`/`ast_sched_del_nonrunning` distinction, and what autoservice
+does to a channel while the dialplan is busy elsewhere.
 
 ## Tier 2 — the large subsystems
 
