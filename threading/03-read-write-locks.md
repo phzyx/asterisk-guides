@@ -649,6 +649,7 @@ them.
 
 ## Next
 
-Chapter 04 will cover condition variables: `ast_cond_t` as a bare typedef with
-no tracking of its own, what `__ast_cond_wait` does to the reentrancy record of
-the mutex it releases, and the timed variant.
+[Chapter 04](04-condition-variables.md) covers condition variables: a bare
+typedef with no tracking of its own, four entry points that are pure
+pass-throughs, and the one place in `main/lock.c` that takes a mutex's tracking
+record away and gives it back.

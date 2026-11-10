@@ -91,6 +91,7 @@ nav:
       - 1. The wrapper layer: threading/01-the-wrapper-layer.md
       - 2. Mutexes: threading/02-mutexes.md
       - 3. Read-write locks: threading/03-read-write-locks.md
+      - 4. Condition variables: threading/04-condition-variables.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md

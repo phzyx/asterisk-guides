@@ -152,7 +152,7 @@ unconditional; the consumer is not. Chapter 05.
 | [01-the-wrapper-layer.md](01-the-wrapper-layer.md) | the macro-to-function indirection and the four captured arguments, `ast_mutex_t`/`ast_rwlock_t` as structs, the renamed-field ABI device and `DEBUG_THREADS_LOOSE_ABI`, why Asterisk requires recursive mutexes, static initializers, `AST_MUTEX_DEFINE_STATIC` and the `AST_MUTEX_INIT_W_CONSTRUCTORS` variant | planned |
 | [02-mutexes.md](02-mutexes.md) | `__ast_pthread_mutex_init` through `__ast_pthread_mutex_unlock` statement by statement, `log_mutex_error` and the `logger.c` exception, lazy tracking setup and the global `reentrancy_lock`, the reentrancy stack, `DETECT_DEADLOCKS`, and a table of every mutex error message | written |
 | [03-read-write-locks.md](03-read-write-locks.md) | the nine rwlock entry points, the member-name and argument-order differences from the mutex family, the writer-preference attribute, why the reentrancy array is a search rather than a stack, the ownership check and stock-build diagnostic that rwlocks do not have, the timed and try variants, and a table of every rwlock error message | written |
-| `04-condition-variables.md` | `ast_cond_t` as a bare typedef, `__ast_cond_wait` and `__ast_cond_timedwait`, `restore_lock_tracking` and why the wait has to unwind and rebuild the tracking stack | planned |
+| [`04-condition-variables.md`](04-condition-variables.md) | `ast_cond_t` as a bare typedef, the four entry points that do nothing, how a condition wait suspends a mutex in two separate records, `restore_lock_tracking`, and the clock nobody sets | written |
 | `05-lock-tracking-and-introspection.md` | `ast_lock_track` versus `thr_lock_info`, `ast_store_lock_info`/`ast_mark_lock_acquired`/`ast_remove_lock_info`, `core show locks` end to end, `DETECT_DEADLOCKS`, `THREAD_CRASH` | planned |
 | `06-deadlock-avoidance-and-ordering.md` | the `#ifdef DEBUG_THREADS` split and why the two definitions differ, `DEADLOCK_AVOIDANCE` and its 27 call sites (26 in `.c` files, all in channel drivers, plus one buried inside `ast_autochan_channel_lock`), `DLA_UNLOCK`/`DLA_LOCK` pairing, the lock-ordering rules the tree actually follows | planned |
 | `07-threads.md` | `ast_pthread_create_stack` and `ast_pthread_create_detached_stack` and the four macros over them, `AST_STACKSIZE` and `AST_BACKGROUND_STACKSIZE`, thread registration and naming, what the 130 call sites are for | planned |
@@ -186,8 +186,11 @@ Chapters 05 and 06 are the practical pair: the first tells you how to see what
 is held, the second tells you what the tree does about it. Read them together
 when you have a hang to explain.
 
-Condition variables, threads and atomics are reference material. Read them when
-you need them.
+[04-condition-variables.md](04-condition-variables.md) is short and mostly
+independent of 02 and 03. Read it if you have a thread parked in a wait and
+want to know why `core show locks` shows it holding nothing, or before you
+trust a `timedwait` deadline. Threads and atomics are reference material. Read
+them when you need them.
 
 ## Next
 
