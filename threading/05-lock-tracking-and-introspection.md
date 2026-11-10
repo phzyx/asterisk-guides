@@ -922,7 +922,8 @@ reached about rwlock unlock, and the same one §4.5's missing searches invite.
 
 ## Next
 
-Chapter 06 will cover deadlock avoidance and lock ordering: why five macros in
-`lock.h` are each defined twice and how the pairs differ, what
-`DEADLOCK_AVOIDANCE` does to a lock at its 27 call sites, the `DLA_UNLOCK`/`DLA_LOCK`
-split macro, and the ordering rules the tree actually follows.
+[Chapter 06](06-deadlock-avoidance-and-ordering.md) covers deadlock avoidance
+and lock ordering: why five macros in `lock.h` are each defined twice and how
+the pairs differ, what `DEADLOCK_AVOIDANCE` does to a lock at its 27 call
+sites, the `DLA_UNLOCK`/`DLA_LOCK` split macro, and the ordering rules the tree
+actually follows.
