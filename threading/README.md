@@ -140,7 +140,8 @@ Two structures, two directions: one asks "who holds this lock", the other asks
 The asymmetry to hold on to is that only the *first* of those survives a normal
 build. `thr_lock_info`, `AST_MAX_LOCKS`, `ast_dump_locks()` and the CLI command
 itself are all inside `#ifdef DEBUG_THREADS` and `#if !defined(LOW_MEMORY)`
-(`main/utils.c:978-980`, closing at `:1584-1585`), so `core show locks` does not
+(`main/utils.c:978` and `:980`, closing at `:1586` and `:1585` respectively),
+so `core show locks` does not
 exist in a stock build — whereas the per-lock `ast_lock_track` pointer, as
 consequence 2 says, is in the struct regardless. The storage is
 unconditional; the consumer is not. Chapter 05.
@@ -153,7 +154,7 @@ unconditional; the consumer is not. Chapter 05.
 | [02-mutexes.md](02-mutexes.md) | `__ast_pthread_mutex_init` through `__ast_pthread_mutex_unlock` statement by statement, `log_mutex_error` and the `logger.c` exception, lazy tracking setup and the global `reentrancy_lock`, the reentrancy stack, `DETECT_DEADLOCKS`, and a table of every mutex error message | written |
 | [03-read-write-locks.md](03-read-write-locks.md) | the nine rwlock entry points, the member-name and argument-order differences from the mutex family, the writer-preference attribute, why the reentrancy array is a search rather than a stack, the ownership check and stock-build diagnostic that rwlocks do not have, the timed and try variants, and a table of every rwlock error message | written |
 | [`04-condition-variables.md`](04-condition-variables.md) | `ast_cond_t` as a bare typedef, the four entry points that do nothing, how a condition wait suspends a mutex in two separate records, `restore_lock_tracking`, and the clock nobody sets | written |
-| `05-lock-tracking-and-introspection.md` | `ast_lock_track` versus `thr_lock_info`, `ast_store_lock_info`/`ast_mark_lock_acquired`/`ast_remove_lock_info`, `core show locks` end to end, `DETECT_DEADLOCKS`, `THREAD_CRASH` | planned |
+| [`05-lock-tracking-and-introspection.md`](05-lock-tracking-and-introspection.md) | the two tracking records and the two caps, which threads the registry can and cannot see, the eleven-of-thirteen field write and the slot `ast_remove_lock_info` leaves dirty, the two incompatible ways a failed acquisition is recorded, `core show locks` read line by line, the three timestamps that are not durations, the seven checks that cannot fire, and what each of `DEBUG_THREADS`, `LOW_MEMORY`, `DETECT_DEADLOCKS` and `THREAD_CRASH` actually buys | written |
 | `06-deadlock-avoidance-and-ordering.md` | the `#ifdef DEBUG_THREADS` split and why the two definitions differ, `DEADLOCK_AVOIDANCE` and its 27 call sites (26 in `.c` files, all in channel drivers, plus one buried inside `ast_autochan_channel_lock`), `DLA_UNLOCK`/`DLA_LOCK` pairing, the lock-ordering rules the tree actually follows | planned |
 | `07-threads.md` | `ast_pthread_create_stack` and `ast_pthread_create_detached_stack` and the four macros over them, `AST_STACKSIZE` and `AST_BACKGROUND_STACKSIZE`, thread registration and naming, what the 130 call sites are for | planned |
 | `08-atomics.md` | `ast_atomic_*` over `__atomic` and the `__sync` fallback, the `memorder` argument that silently disappears, `ast_atomic_fetchadd_int` and `ast_atomic_dec_and_test`, the disabled compare-exchange | planned |

@@ -626,7 +626,7 @@ what is not in the table: nothing about the condition variable. No message in
 
 ## Next
 
-Chapter 05 will cover lock tracking and introspection as a subsystem in its own
-right: `ast_lock_track` against `thr_lock_info`, the two caps, how
+[Chapter 05](05-lock-tracking-and-introspection.md) covers lock tracking and
+introspection as a subsystem in its own right: `ast_lock_track` against `thr_lock_info`, the two caps, how
 `ast_store_lock_info` and `ast_mark_lock_acquired` populate the per-thread list,
 and `core show locks` read end to end.
