@@ -64,7 +64,7 @@ Placed before bridging on purpose: bridging is where the thread model bites.
 Counting `.c` and `.h` files but excluding `third-party/` and the standalone
 `utils/extconf.c`, 183 files call into the lock wrappers, with 850
 `ast_mutex_lock` sites, 1,267 `ast_mutex_unlock`, 170 rwlock acquisitions and
-151 condition waits; 130 sites call one of the four `ast_pthread_create*`
+151 condition waits; 129 sites call one of the four `ast_pthread_create*`
 macros; and `DEADLOCK_AVOIDANCE` appears at 27 call sites. Almost every macro in
 `lock.h` has two definitions — `DEADLOCK_AVOIDANCE` at `:383` under
 `DEBUG_THREADS` and at `:486` without it — which is a section on its own.

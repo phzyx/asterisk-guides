@@ -1102,8 +1102,8 @@ is no way to distinguish contention from livelock from either the log or the CLI
 
 ## Next
 
-Chapter 07 will cover thread creation: `ast_pthread_create_stack` and
-`ast_pthread_create_detached_stack`, the four macros over them, `AST_STACKSIZE`
-and `AST_BACKGROUND_STACKSIZE`, how a thread gets registered and named — which
-is the other half of chapter 05 §5.2's question about which threads the registry
-can see — and what the 130 call sites are for.
+[Chapter 07](07-threads.md) covers thread creation: `ast_pthread_create_stack`
+and `ast_pthread_create_detached_stack`, the four macros over them,
+`AST_STACKSIZE` and `AST_BACKGROUND_STACKSIZE`, how a thread gets registered
+and named — which is the other half of chapter 05 §5.2's question about which
+threads the registry can see — and what the 129 call sites are for.
