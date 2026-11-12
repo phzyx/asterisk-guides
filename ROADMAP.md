@@ -53,7 +53,7 @@ proxies and global objects, and debugging. All 217 quoted blocks verify
 whitespace-exact against the `24` tree, the two exceptions being deliberate
 anti-patterns.
 
-### 3. Threading, locking and deadlock avoidance — *in progress* ([threading/](threading/README.md))
+### 3. Threading, locking and deadlock avoidance — *written* ([threading/](threading/README.md))
 
 | | |
 |---|---|
@@ -75,8 +75,11 @@ deadlock avoidance and lock ordering, thread creation, and atomics. It sits
 underneath [channels/03](channels/03-references-and-locking.md) and
 [ao2/03](ao2/03-locking.md) rather than restating them.
 
-Shipped so far: an overview and chapter 01 (the wrapper layer). All 17 quoted
-blocks in chapter 01 verify whitespace-exact against the cited lines.
+Shipped as nine files: an overview plus chapters on the wrapper layer,
+mutexes, read-write locks, condition variables, lock tracking and
+introspection, deadlock avoidance and ordering, threads, and atomics. The last
+of these closes with an addendum collecting the rough edges found across all
+eight. All 172 quoted blocks verify whitespace-exact against the `24` tree.
 
 ### 3a. Task execution — taskprocessors, threadpools, the scheduler and autoservice
 

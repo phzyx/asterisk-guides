@@ -1078,8 +1078,10 @@ second thing.
 
 ## Next
 
-Chapter 08 covers the atomics: `ast_atomic_*` as a thin layer over the
-compiler's `__atomic` built-ins with a `__sync` fallback, the `memorder`
-argument the fallback erases in the preprocessor, the two older helpers
-`ast_atomic_fetchadd_int` and `ast_atomic_dec_and_test` that most of the tree
-still uses, and the compare-exchange that is defined and then disabled.
+[Chapter 08](08-atomics.md) covers the atomics: `ast_atomic_*` as a thin layer
+over the compiler's `__atomic` built-ins with a `__sync` fallback, the
+`memorder` argument the fallback erases in the preprocessor, the two older
+helpers `ast_atomic_fetchadd_int` and `ast_atomic_dec_and_test` that most of
+the tree still uses, and the compare-exchange that is defined and then
+disabled. It is the last chapter of this guide, and it ends with the
+addendum of rough edges collected across all eight.

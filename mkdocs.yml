@@ -95,6 +95,7 @@ nav:
       - 5. Lock tracking and introspection: threading/05-lock-tracking-and-introspection.md
       - 6. Deadlock avoidance and ordering: threading/06-deadlock-avoidance-and-ordering.md
       - 7. Threads: threading/07-threads.md
+      - 8. Atomics: threading/08-atomics.md
   - Channels:
       - Overview: channels/README.md
       - 1. Anatomy: channels/01-anatomy.md
